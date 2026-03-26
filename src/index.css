@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+* {
+  direction: rtl;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: #f0f4f8;
+  margin: 0;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.org-tree-container {
+  overflow: auto;
+  cursor: grab;
+  user-select: none;
+}
+
+.org-tree-container:active {
+  cursor: grabbing;
+}
+
+.org-tree-inner {
+  transform-origin: top center;
+  transition: transform 0.1s ease;
+  display: inline-block;
+  min-width: 100%;
+}
+
+.tree-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.tree-children {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: flex-start;
+  position: relative;
+  padding-top: 32px;
+  gap: 16px;
+}
+
+.tree-children::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  height: 32px;
+  background: #94a3b8;
+}
+
+.tree-children-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.tree-children-wrapper::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  height: 2px;
+  background: #94a3b8;
+}
+
+.connector-line {
+  position: absolute;
+  top: 0;
+  height: 2px;
+  background: #94a3b8;
+}
+
+.child-connector {
+  position: relative;
+}
+
+.child-connector::before {
+  content: '';
+  position: absolute;
+  top: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  height: 16px;
+  background: #94a3b8;
+}
