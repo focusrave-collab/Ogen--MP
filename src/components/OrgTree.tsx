@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Employee } from '../types/employee'
+import type { Employee } from '../types/employee'
 import EmployeeCard from './EmployeeCard'
 
 interface TreeNode {
