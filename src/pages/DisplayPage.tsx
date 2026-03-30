@@ -21,7 +21,7 @@ export default function DisplayPage() {
   const hasFilter = filterDivision || filterDepartment || filterProgram
 
   return (
-    <div className="flex flex-col flex-1" style={{ direction: 'rtl', height: 'calc(100vh - 64px)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, direction: 'rtl', minHeight: 0 }}>
       {/* Toolbar */}
       <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-slate-200 flex-wrap shadow-sm z-10">
         <h1 className="text-xl font-bold text-slate-800 ml-4">תצוגת עץ ארגוני</h1>

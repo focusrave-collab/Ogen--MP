@@ -8,12 +8,16 @@ export default function App() {
   return (
     <EmployeeProvider>
       <BrowserRouter>
-        <Navbar />
-        <Routes>
-          <Route path="/" element={<Navigate to="/manage" replace />} />
-          <Route path="/manage" element={<ManagePage />} />
-          <Route path="/display" element={<DisplayPage />} />
-        </Routes>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+          <Navbar />
+          <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <Routes>
+              <Route path="/" element={<Navigate to="/manage" replace />} />
+              <Route path="/manage" element={<ManagePage />} />
+              <Route path="/display" element={<DisplayPage />} />
+            </Routes>
+          </div>
+        </div>
       </BrowserRouter>
     </EmployeeProvider>
   )
