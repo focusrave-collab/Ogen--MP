@@ -31,6 +31,8 @@ export default function ManagePage() {
   const [editing, setEditing] = useState<EditingCell | null>(null)
   const [editValue, setEditValue] = useState('')
   const [search, setSearch] = useState('')
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const filtered = employees.filter(e =>
@@ -130,6 +132,13 @@ export default function ManagePage() {
           ייבוא CSV
         </button>
         <input ref={fileInputRef} type="file" accept=".csv" onChange={importCSV} className="hidden" />
+        <button
+          onClick={() => employees.length > 0 && setConfirmDeleteAll(true)}
+          disabled={employees.length === 0}
+          className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
+        >
+          מחק הכל
+        </button>
       </div>
 
       {/* Table */}
@@ -207,7 +216,7 @@ export default function ManagePage() {
                   })}
                   <td className="px-2 py-1.5 text-center border-l border-slate-100">
                     <button
-                      onClick={() => deleteEmployee(emp.id)}
+                      onClick={() => setConfirmDeleteId(emp.id)}
                       className="text-red-400 hover:text-red-600 hover:bg-red-50 rounded p-1 transition-colors"
                       title="מחק עובד"
                     >
@@ -226,6 +235,44 @@ export default function ManagePage() {
       <div className="mt-2 text-xs text-slate-400 text-right">
         סה"כ: {employees.length} עובדים {search && `| מוצגים: ${filtered.length}`}
       </div>
+
+      {/* אישור מחיקת שורה */}
+      {confirmDeleteId && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full mx-4 text-center">
+            <div className="text-red-500 mb-3">
+              <svg className="mx-auto" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="0.5" fill="currentColor"/>
+              </svg>
+            </div>
+            <h2 className="text-lg font-bold text-slate-800 mb-1">מחיקת עובד</h2>
+            <p className="text-slate-500 text-sm mb-5">האם אתה בטוח שברצונך למחוק עובד זה?</p>
+            <div className="flex gap-3 justify-center">
+              <button onClick={() => setConfirmDeleteId(null)} className="px-5 py-2 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 text-sm font-medium transition-colors">ביטול</button>
+              <button onClick={() => { deleteEmployee(confirmDeleteId); setConfirmDeleteId(null) }} className="px-5 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors">מחק</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* אישור מחיקת הכל */}
+      {confirmDeleteAll && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full mx-4 text-center">
+            <div className="text-red-500 mb-3">
+              <svg className="mx-auto" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="0.5" fill="currentColor"/>
+              </svg>
+            </div>
+            <h2 className="text-lg font-bold text-slate-800 mb-1">מחיקת כל העובדים</h2>
+            <p className="text-slate-500 text-sm mb-5">פעולה זו תמחק את כל {employees.length} העובדים ולא ניתן לבטלה.</p>
+            <div className="flex gap-3 justify-center">
+              <button onClick={() => setConfirmDeleteAll(false)} className="px-5 py-2 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 text-sm font-medium transition-colors">ביטול</button>
+              <button onClick={() => { importEmployees([]); setConfirmDeleteAll(false) }} className="px-5 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors">מחק הכל</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
