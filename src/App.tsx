@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { HashRouter as BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { EmployeeProvider } from './store/useEmployeeStore'
 import Navbar from './components/Navbar'
 import ManagePage from './pages/ManagePage'
