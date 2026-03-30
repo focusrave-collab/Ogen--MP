@@ -80,12 +80,14 @@ export default function ManagePage() {
     const lines = text.replace(/^\uFEFF/, '').split('\n').filter(Boolean)
     if (lines.length < 2) return
     const dataLines = lines.slice(1)
-    const imported: Employee[] = dataLines.map(line => {
-      const parts = line.split(',').map(v => v.replace(/^"|"$/g, '').replace(/""/g, '"'))
-      const emp: Employee = { id: crypto.randomUUID(), ...EMPTY_EMPLOYEE }
-      COLUMNS.forEach((col, idx) => { emp[col.key] = parts[idx + 1] || '' })
-      return emp
-    })
+    const imported: Employee[] = dataLines
+      .map(line => {
+        const parts = line.split(',').map(v => v.replace(/^"|"$/g, '').replace(/""/g, '"'))
+        const emp: Employee = { id: crypto.randomUUID(), ...EMPTY_EMPLOYEE }
+        COLUMNS.forEach((col, idx) => { emp[col.key] = parts[idx + 1] || '' })
+        return emp
+      })
+      .filter(emp => emp.firstName || emp.lastName || emp.employeeNumber)
     importEmployees(imported)
   }
 
@@ -119,6 +121,12 @@ export default function ManagePage() {
           className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 w-48"
         />
         <div className="flex-1" />
+        <button
+          onClick={() => importEmployees(employees.filter(e => e.firstName || e.lastName || e.employeeNumber))}
+          className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
+        >
+          נקה שורות ריקות
+        </button>
         <button
           onClick={addRow}
           className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
@@ -216,8 +224,8 @@ export default function ManagePage() {
                             />
                           )
                         ) : (
-                          <span className={`block truncate text-slate-700 ${!value ? 'text-slate-300 italic text-xs' : ''}`} style={{ maxWidth: col.width }}>
-                            {value || 'לחץ לעריכה'}
+                          <span className="block truncate text-slate-700" style={{ maxWidth: col.width }}>
+                            {value}
                           </span>
                         )}
                       </td>
