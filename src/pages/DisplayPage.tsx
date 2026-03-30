@@ -70,7 +70,7 @@ export default function DisplayPage() {
       </div>
 
       {/* Tree */}
-      <div className="flex-1" style={{ direction: 'ltr' }}>
+      <div style={{ flex: 1, direction: 'ltr', width: '100%', minHeight: 0 }}>
         <OrgTreeFlow employees={filtered} />
       </div>
     </div>

@@ -270,6 +270,7 @@ export default function OrgTreeFlow({ employees }: Props) {
   }
 
   return (
+    <div style={{ width: '100%', height: '100%' }}>
     <ReactFlow
       nodes={nodes}
       edges={edges}
@@ -285,5 +286,6 @@ export default function OrgTreeFlow({ employees }: Props) {
       <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="#cbd5e1" />
       <Controls showInteractive={false} position="bottom-left" />
     </ReactFlow>
+    </div>
   )
 }
