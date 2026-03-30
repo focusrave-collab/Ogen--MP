@@ -45,16 +45,22 @@ function buildElements(
   // Lookup by employee number (primary) or full name (fallback)
   const byNumber = new Map<string, Employee>()
   const byFullName = new Map<string, Employee>()
+  const byLastName = new Map<string, Employee>()
   employees.forEach(e => {
     if (e.employeeNumber) byNumber.set(e.employeeNumber.trim(), e)
-    const full = `${e.firstName} ${e.lastName}`.trim()
-    if (full) byFullName.set(full, e)
+    const first = e.firstName.trim()
+    const last = e.lastName.trim()
+    if (first || last) {
+      byFullName.set(`${first} ${last}`.trim(), e)   // שם שם_משפחה
+      byFullName.set(`${last} ${first}`.trim(), e)   // שם_משפחה שם
+    }
+    if (last) byLastName.set(last, e)
   })
 
   function findManager(dm: string): Employee | undefined {
     if (!dm) return undefined
     const s = dm.trim()
-    return byNumber.get(s) ?? byFullName.get(s)
+    return byNumber.get(s) ?? byFullName.get(s) ?? byLastName.get(s)
   }
 
   // Build children map
