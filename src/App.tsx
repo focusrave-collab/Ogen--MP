@@ -8,9 +8,9 @@ export default function App() {
   return (
     <EmployeeProvider>
       <BrowserRouter>
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
           <Navbar />
-          <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             <Routes>
               <Route path="/" element={<Navigate to="/manage" replace />} />
               <Route path="/manage" element={<ManagePage />} />
