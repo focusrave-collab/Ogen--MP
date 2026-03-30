@@ -76,24 +76,33 @@ export default function ManagePage() {
     URL.revokeObjectURL(url)
   }
 
+  function parseCSVText(text: string) {
+    const lines = text.replace(/^\uFEFF/, '').split('\n').filter(Boolean)
+    if (lines.length < 2) return
+    const dataLines = lines.slice(1)
+    const imported: Employee[] = dataLines.map(line => {
+      const parts = line.split(',').map(v => v.replace(/^"|"$/g, '').replace(/""/g, '"'))
+      const emp: Employee = { id: crypto.randomUUID(), ...EMPTY_EMPLOYEE }
+      COLUMNS.forEach((col, idx) => { emp[col.key] = parts[idx + 1] || '' })
+      return emp
+    })
+    importEmployees(imported)
+  }
+
   function importCSV(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
     reader.onload = (ev) => {
-      const text = ev.target?.result as string
-      const lines = text.replace(/^\uFEFF/, '').split('\n').filter(Boolean)
-      if (lines.length < 2) return
-      const dataLines = lines.slice(1)
-      const imported: Employee[] = dataLines.map(line => {
-        const parts = line.split(',').map(v => v.replace(/^"|"$/g, '').replace(/""/g, '"'))
-        const emp: Employee = { id: crypto.randomUUID(), ...EMPTY_EMPLOYEE }
-        COLUMNS.forEach((col, idx) => { emp[col.key] = parts[idx + 1] || '' })
-        return emp
-      })
-      importEmployees(imported)
+      const buffer = ev.target?.result as ArrayBuffer
+      // Try UTF-8 first; if it contains replacement chars (�), fall back to Windows-1255
+      const utf8Text = new TextDecoder('utf-8').decode(buffer)
+      const text = utf8Text.includes('\uFFFD')
+        ? new TextDecoder('windows-1255').decode(buffer)
+        : utf8Text
+      parseCSVText(text)
     }
-    reader.readAsText(file, 'UTF-8')
+    reader.readAsArrayBuffer(file)
     e.target.value = ''
   }
 
