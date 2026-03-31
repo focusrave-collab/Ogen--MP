@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { useEmployeeStore } from '../store/useEmployeeStore'
+import { useOrgUnitStore } from '../store/useOrgUnitStore'
 import type { Employee } from '../types/employee'
 import { EMPTY_EMPLOYEE } from '../types/employee'
 
@@ -28,6 +29,7 @@ interface EditingCell {
 
 export default function ManagePage() {
   const { employees, addEmployee, updateEmployee, deleteEmployee, importEmployees, error } = useEmployeeStore()
+  const { orgUnits, loading: orgLoading, error: orgError, syncFromEmployees, updateManager } = useOrgUnitStore()
   const [editing, setEditing] = useState<EditingCell | null>(null)
   const [editValue, setEditValue] = useState('')
   const [search, setSearch] = useState('')
@@ -108,8 +110,14 @@ export default function ManagePage() {
     e.target.value = ''
   }
 
+  // Sort org units: חטיבות → מחלקות → תכניות, then by name
+  const TYPE_ORDER = { 'חטיבה': 0, 'מחלקה': 1, 'תכנית': 2 }
+  const sortedUnits = [...orgUnits].sort((a, b) =>
+    TYPE_ORDER[a.type] - TYPE_ORDER[b.type] || a.name.localeCompare(b.name, 'he')
+  )
+
   return (
-    <div className="flex flex-col flex-1 p-4" style={{ direction: 'rtl' }}>
+    <div className="flex flex-col flex-1 overflow-auto p-4" style={{ direction: 'rtl' }}>
       {error && (
         <div className="mb-3 px-4 py-2 bg-red-50 border border-red-300 text-red-700 rounded-lg text-sm">
           שגיאה: {error}
@@ -163,8 +171,8 @@ export default function ManagePage() {
         </button>
       </div>
 
-      {/* Table */}
-      <div className="flex-1 overflow-auto rounded-xl border border-slate-200 shadow-sm bg-white">
+      {/* Employees Table */}
+      <div className="overflow-auto rounded-xl border border-slate-200 shadow-sm bg-white" style={{ maxHeight: '45vh' }}>
         <table className="w-full text-sm border-collapse" style={{ minWidth: 1400 }}>
           <thead>
             <tr className="bg-slate-700 text-white sticky top-0 z-10">
@@ -256,6 +264,93 @@ export default function ManagePage() {
 
       <div className="mt-2 text-xs text-slate-400 text-right">
         סה"כ: {employees.length} עובדים {search && `| מוצגים: ${filtered.length}`}
+      </div>
+
+      {/* Org Units Section */}
+      <div className="mt-6">
+        <div className="flex items-center gap-3 mb-3">
+          <h2 className="text-lg font-bold text-slate-800">יחידות ארגוניות</h2>
+          <button
+            onClick={() => syncFromEmployees(employees).catch(e => alert('שגיאה: ' + e.message))}
+            disabled={orgLoading || employees.length === 0}
+            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
+          >
+            {orgLoading ? 'מסנכרן...' : 'סנכרן מעובדים'}
+          </button>
+          {orgError && <span className="text-red-500 text-sm">{orgError}</span>}
+        </div>
+        <div className="overflow-auto rounded-xl border border-slate-200 shadow-sm bg-white" style={{ maxHeight: '40vh' }}>
+          <table className="w-full text-sm border-collapse" style={{ minWidth: 600 }}>
+            <thead>
+              <tr className="bg-slate-700 text-white sticky top-0 z-10">
+                <th className="px-3 py-2.5 text-right font-semibold border-l border-slate-600 w-24">סוג</th>
+                <th className="px-3 py-2.5 text-right font-semibold border-l border-slate-600">שם</th>
+                <th className="px-3 py-2.5 text-right font-semibold border-l border-slate-600">שייך ל</th>
+                <th className="px-3 py-2.5 text-right font-semibold w-64">מנהל</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedUnits.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="text-center py-10 text-slate-400">
+                    לחץ "סנכרן מעובדים" כדי לטעון את היחידות הארגוניות
+                  </td>
+                </tr>
+              ) : (
+                sortedUnits.map((unit) => {
+                  const TYPE_BG: Record<string, string> = {
+                    'חטיבה': 'bg-blue-50',
+                    'מחלקה': 'bg-white',
+                    'תכנית': 'bg-slate-50',
+                  }
+                  const TYPE_BADGE: Record<string, string> = {
+                    'חטיבה': 'bg-blue-100 text-blue-700',
+                    'מחלקה': 'bg-purple-100 text-purple-700',
+                    'תכנית': 'bg-emerald-100 text-emerald-700',
+                  }
+                  return (
+                    <tr key={unit.id} className={`border-b border-slate-100 ${TYPE_BG[unit.type]}`}>
+                      <td className="px-3 py-2 border-l border-slate-100">
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${TYPE_BADGE[unit.type]}`}>
+                          {unit.type}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 border-l border-slate-100 font-medium text-slate-700">
+                        {unit.type === 'מחלקה' && <span className="text-slate-300 ml-1">└</span>}
+                        {unit.type === 'תכנית' && <span className="text-slate-300 ml-1 mr-3">└</span>}
+                        {unit.name}
+                      </td>
+                      <td className="px-3 py-2 border-l border-slate-100 text-slate-500 text-sm">
+                        {unit.parentName || '—'}
+                      </td>
+                      <td className="px-3 py-2">
+                        <select
+                          value={unit.managerEmployeeNumber}
+                          onChange={e => updateManager(unit.id, e.target.value)}
+                          className="w-full border border-slate-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                        >
+                          <option value="">— ללא מנהל —</option>
+                          {employees
+                            .filter(e => e.firstName || e.lastName)
+                            .sort((a, b) => `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`, 'he'))
+                            .map(e => (
+                              <option key={e.id} value={e.employeeNumber}>
+                                {e.firstName} {e.lastName}{e.employeeNumber ? ` (${e.employeeNumber})` : ''}
+                              </option>
+                            ))
+                          }
+                        </select>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-2 text-xs text-slate-400 text-right">
+          סה"כ: {orgUnits.length} יחידות ארגוניות
+        </div>
       </div>
 
       {/* אישור מחיקת שורה */}

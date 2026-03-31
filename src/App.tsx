@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { EmployeeProvider } from './store/useEmployeeStore'
+import { OrgUnitProvider } from './store/useOrgUnitStore'
 import Navbar from './components/Navbar'
 import ManagePage from './pages/ManagePage'
 import DisplayPage from './pages/DisplayPage'
@@ -15,6 +16,7 @@ export default function App() {
 
   return (
     <EmployeeProvider>
+      <OrgUnitProvider>
       <HashRouter>
         <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
           <Navbar onLogout={() => { sessionStorage.removeItem('auth'); setAuthed(false) }} />
@@ -27,6 +29,7 @@ export default function App() {
           </div>
         </div>
       </HashRouter>
+      </OrgUnitProvider>
     </EmployeeProvider>
   )
 }
