@@ -29,12 +29,15 @@ interface EditingCell {
 
 export default function ManagePage() {
   const { employees, addEmployee, updateEmployee, deleteEmployee, importEmployees, error } = useEmployeeStore()
-  const { orgUnits, loading: orgLoading, error: orgError, syncFromEmployees, updateManager } = useOrgUnitStore()
+  const { orgUnits, loading: orgLoading, error: orgError, syncFromEmployees, updateManager, updateOrgUnit, deleteOrgUnit } = useOrgUnitStore()
   const [editing, setEditing] = useState<EditingCell | null>(null)
   const [editValue, setEditValue] = useState('')
   const [search, setSearch] = useState('')
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false)
+  const [editingUnit, setEditingUnit] = useState<{ id: string; field: string } | null>(null)
+  const [editUnitValue, setEditUnitValue] = useState('')
+  const [confirmDeleteUnitId, setConfirmDeleteUnitId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const filtered = employees.filter(e =>
@@ -280,66 +283,103 @@ export default function ManagePage() {
           {orgError && <span className="text-red-500 text-sm">{orgError}</span>}
         </div>
         <div className="overflow-auto rounded-xl border border-slate-200 shadow-sm bg-white" style={{ maxHeight: '40vh' }}>
-          <table className="w-full text-sm border-collapse" style={{ minWidth: 600 }}>
+          <table className="w-full text-sm border-collapse" style={{ minWidth: 640 }}>
             <thead>
               <tr className="bg-slate-700 text-white sticky top-0 z-10">
-                <th className="px-3 py-2.5 text-right font-semibold border-l border-slate-600 w-24">סוג</th>
+                <th className="px-3 py-2.5 text-right font-semibold border-l border-slate-600 w-28">סוג</th>
                 <th className="px-3 py-2.5 text-right font-semibold border-l border-slate-600">שם</th>
-                <th className="px-3 py-2.5 text-right font-semibold border-l border-slate-600">שייך ל</th>
-                <th className="px-3 py-2.5 text-right font-semibold w-64">מנהל</th>
+                <th className="px-3 py-2.5 text-right font-semibold border-l border-slate-600 w-44">שייך ל</th>
+                <th className="px-3 py-2.5 text-right font-semibold border-l border-slate-600 w-60">מנהל</th>
+                <th className="px-3 py-2.5 text-center font-semibold w-14">מחיקה</th>
               </tr>
             </thead>
             <tbody>
               {sortedUnits.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="text-center py-10 text-slate-400">
+                  <td colSpan={5} className="text-center py-10 text-slate-400">
                     לחץ "סנכרן מעובדים" כדי לטעון את היחידות הארגוניות
                   </td>
                 </tr>
               ) : (
                 sortedUnits.map((unit) => {
-                  const TYPE_BG: Record<string, string> = {
-                    'חטיבה': 'bg-blue-50',
-                    'מחלקה': 'bg-white',
-                    'תכנית': 'bg-slate-50',
+                  const TYPE_BG: Record<string, string> = { 'חטיבה': 'bg-blue-50', 'מחלקה': 'bg-white', 'תכנית': 'bg-slate-50' }
+                  const TYPE_BADGE: Record<string, string> = { 'חטיבה': 'bg-blue-100 text-blue-700', 'מחלקה': 'bg-purple-100 text-purple-700', 'תכנית': 'bg-emerald-100 text-emerald-700' }
+                  const TYPE_OPTIONS = ['חטיבה', 'מחלקה', 'תכנית']
+
+                  function unitCellEdit(field: string, value: string) {
+                    setEditingUnit({ id: unit.id, field })
+                    setEditUnitValue(value)
                   }
-                  const TYPE_BADGE: Record<string, string> = {
-                    'חטיבה': 'bg-blue-100 text-blue-700',
-                    'מחלקה': 'bg-purple-100 text-purple-700',
-                    'תכנית': 'bg-emerald-100 text-emerald-700',
+                  function commitUnitEdit() {
+                    if (!editingUnit || editingUnit.id !== unit.id) return
+                    updateOrgUnit(unit.id, { [editingUnit.field]: editUnitValue })
+                    setEditingUnit(null)
                   }
+                  function unitKeyDown(e: React.KeyboardEvent) {
+                    if (e.key === 'Enter') commitUnitEdit()
+                    if (e.key === 'Escape') setEditingUnit(null)
+                  }
+                  const isEditingField = (f: string) => editingUnit?.id === unit.id && editingUnit?.field === f
+
                   return (
                     <tr key={unit.id} className={`border-b border-slate-100 ${TYPE_BG[unit.type]}`}>
-                      <td className="px-3 py-2 border-l border-slate-100">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${TYPE_BADGE[unit.type]}`}>
-                          {unit.type}
-                        </span>
+                      {/* סוג */}
+                      <td className="px-2 py-1.5 border-l border-slate-100 cursor-pointer"
+                        onClick={() => !isEditingField('type') && unitCellEdit('type', unit.type)}>
+                        {isEditingField('type') ? (
+                          <select autoFocus value={editUnitValue} onChange={e => setEditUnitValue(e.target.value)}
+                            onBlur={commitUnitEdit}
+                            className="w-full border border-blue-400 rounded px-1 py-0.5 text-xs focus:outline-none bg-white">
+                            {TYPE_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                        ) : (
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${TYPE_BADGE[unit.type]}`}>{unit.type}</span>
+                        )}
                       </td>
-                      <td className="px-3 py-2 border-l border-slate-100 font-medium text-slate-700">
-                        {unit.type === 'מחלקה' && <span className="text-slate-300 ml-1">└</span>}
-                        {unit.type === 'תכנית' && <span className="text-slate-300 ml-1 mr-3">└</span>}
-                        {unit.name}
+                      {/* שם */}
+                      <td className="px-2 py-1.5 border-l border-slate-100 cursor-pointer font-medium text-slate-700"
+                        onClick={() => !isEditingField('name') && unitCellEdit('name', unit.name)}>
+                        {isEditingField('name') ? (
+                          <input autoFocus value={editUnitValue} onChange={e => setEditUnitValue(e.target.value)}
+                            onBlur={commitUnitEdit} onKeyDown={unitKeyDown}
+                            className="w-full border border-blue-400 rounded px-1 py-0.5 text-sm focus:outline-none" />
+                        ) : (
+                          <span>{unit.name}</span>
+                        )}
                       </td>
-                      <td className="px-3 py-2 border-l border-slate-100 text-slate-500 text-sm">
-                        {unit.parentName || '—'}
+                      {/* שייך ל */}
+                      <td className="px-2 py-1.5 border-l border-slate-100 cursor-pointer text-slate-500"
+                        onClick={() => !isEditingField('parentName') && unitCellEdit('parentName', unit.parentName)}>
+                        {isEditingField('parentName') ? (
+                          <input autoFocus value={editUnitValue} onChange={e => setEditUnitValue(e.target.value)}
+                            onBlur={commitUnitEdit} onKeyDown={unitKeyDown}
+                            className="w-full border border-blue-400 rounded px-1 py-0.5 text-sm focus:outline-none" />
+                        ) : (
+                          <span>{unit.parentName || '—'}</span>
+                        )}
                       </td>
-                      <td className="px-3 py-2">
-                        <select
-                          value={unit.managerEmployeeNumber}
-                          onChange={e => updateManager(unit.id, e.target.value)}
-                          className="w-full border border-slate-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
-                        >
+                      {/* מנהל */}
+                      <td className="px-2 py-1.5 border-l border-slate-100">
+                        <select value={unit.managerEmployeeNumber} onChange={e => updateManager(unit.id, e.target.value)}
+                          className="w-full border border-slate-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
                           <option value="">— ללא מנהל —</option>
-                          {employees
-                            .filter(e => e.firstName || e.lastName)
+                          {employees.filter(e => e.firstName || e.lastName)
                             .sort((a, b) => `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`, 'he'))
                             .map(e => (
                               <option key={e.id} value={e.employeeNumber}>
                                 {e.firstName} {e.lastName}{e.employeeNumber ? ` (${e.employeeNumber})` : ''}
                               </option>
-                            ))
-                          }
+                            ))}
                         </select>
+                      </td>
+                      {/* מחיקה */}
+                      <td className="px-2 py-1.5 text-center border-l border-slate-100">
+                        <button onClick={() => setConfirmDeleteUnitId(unit.id)}
+                          className="text-red-400 hover:text-red-600 hover:bg-red-50 rounded p-1 transition-colors">
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+                          </svg>
+                        </button>
                       </td>
                     </tr>
                   )
@@ -386,6 +426,25 @@ export default function ManagePage() {
             <div className="flex gap-3 justify-center">
               <button onClick={() => setConfirmDeleteAll(false)} className="px-5 py-2 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 text-sm font-medium transition-colors">ביטול</button>
               <button onClick={() => { importEmployees([]); setConfirmDeleteAll(false) }} className="px-5 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors">מחק הכל</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* אישור מחיקת יחידה ארגונית */}
+      {confirmDeleteUnitId && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full mx-4 text-center">
+            <div className="text-red-500 mb-3">
+              <svg className="mx-auto" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="0.5" fill="currentColor"/>
+              </svg>
+            </div>
+            <h2 className="text-lg font-bold text-slate-800 mb-1">מחיקת יחידה ארגונית</h2>
+            <p className="text-slate-500 text-sm mb-5">האם אתה בטוח שברצונך למחוק יחידה זו?</p>
+            <div className="flex gap-3 justify-center">
+              <button onClick={() => setConfirmDeleteUnitId(null)} className="px-5 py-2 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 text-sm font-medium transition-colors">ביטול</button>
+              <button onClick={() => { deleteOrgUnit(confirmDeleteUnitId); setConfirmDeleteUnitId(null) }} className="px-5 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors">מחק</button>
             </div>
           </div>
         </div>

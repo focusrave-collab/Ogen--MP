@@ -10,6 +10,8 @@ interface OrgUnitStore {
   error: string | null
   syncFromEmployees: (employees: Employee[]) => Promise<void>
   updateManager: (id: string, managerEmployeeNumber: string) => Promise<void>
+  updateOrgUnit: (id: string, updates: Partial<Pick<OrgUnit, 'name' | 'type' | 'parentName'>>) => Promise<void>
+  deleteOrgUnit: (id: string) => Promise<void>
 }
 
 function fromDb(row: any): OrgUnit {
@@ -89,8 +91,24 @@ export function OrgUnitProvider({ children }: { children: ReactNode }) {
     setOrgUnits(prev => prev.map(u => u.id === id ? fromDb(data) : u))
   }
 
+  const updateOrgUnit = async (id: string, updates: Partial<Pick<OrgUnit, 'name' | 'type' | 'parentName'>>) => {
+    const dbUpdates: any = {}
+    if (updates.name !== undefined) dbUpdates.name = updates.name
+    if (updates.type !== undefined) dbUpdates.type = updates.type
+    if (updates.parentName !== undefined) dbUpdates.parent_name = updates.parentName
+    const { data, error: e } = await supabase.from('org_units').update(dbUpdates).eq('id', id).select().single()
+    if (e) { setError(e.message); throw e }
+    setOrgUnits(prev => prev.map(u => u.id === id ? fromDb(data) : u))
+  }
+
+  const deleteOrgUnit = async (id: string) => {
+    const { error: e } = await supabase.from('org_units').delete().eq('id', id)
+    if (e) { setError(e.message); throw e }
+    setOrgUnits(prev => prev.filter(u => u.id !== id))
+  }
+
   return (
-    <OrgUnitContext.Provider value={{ orgUnits, loading, error, syncFromEmployees, updateManager }}>
+    <OrgUnitContext.Provider value={{ orgUnits, loading, error, syncFromEmployees, updateManager, updateOrgUnit, deleteOrgUnit }}>
       {children}
     </OrgUnitContext.Provider>
   )
