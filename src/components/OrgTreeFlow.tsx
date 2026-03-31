@@ -55,21 +55,47 @@ function buildChildrenMap(employees: Employee[], findManager: (dm: string) => Em
   return childrenOf
 }
 
-// ─── Dagre layout (LR) ───────────────────────────────────────────────────────
+// ─── Dagre layout (TB) ───────────────────────────────────────────────────────
 
 function applyDagreLayout(nodes: Node[], edges: Edge[]) {
   const g = new dagre.graphlib.Graph()
   g.setDefaultEdgeLabel(() => ({}))
-  g.setGraph({ rankdir: 'LR', nodesep: 20, ranksep: 80, marginx: 40, marginy: 40 })
+  g.setGraph({ rankdir: 'TB', nodesep: 60, ranksep: 80, marginx: 40, marginy: 40 })
 
   nodes.forEach(n => g.setNode(n.id, { width: NODE_WIDTH, height: NODE_HEIGHT }))
   edges.forEach(e => g.setEdge(e.source, e.target))
   dagre.layout(g)
 
-  return nodes.map(n => {
+  const layouted = nodes.map(n => {
     const pos = g.node(n.id)
     return { ...n, position: { x: pos.x - NODE_WIDTH / 2, y: pos.y - NODE_HEIGHT / 2 } }
   })
+
+  // Add extra horizontal spacing between nodes from different parents
+  const parentOf = new Map<string, string>()
+  edges.forEach(e => parentOf.set(e.target, e.source))
+
+  const byRank = new Map<number, Node[]>()
+  layouted.forEach(n => {
+    const rank = Math.round(n.position.y)
+    byRank.set(rank, [...(byRank.get(rank) ?? []), n])
+  })
+
+  const adjusted = new Map(layouted.map(n => [n.id, { ...n }]))
+  byRank.forEach(rankNodes => {
+    if (rankNodes.length < 2) return
+    const sorted = [...rankNodes].sort((a, b) => a.position.x - b.position.x)
+    let offset = 0
+    for (let i = 1; i < sorted.length; i++) {
+      const prevParent = parentOf.get(sorted[i - 1].id)
+      const currParent = parentOf.get(sorted[i].id)
+      if (prevParent !== currParent) offset += 50
+      const node = adjusted.get(sorted[i].id)!
+      node.position = { x: node.position.x + offset, y: node.position.y }
+    }
+  })
+
+  return layouted.map(n => adjusted.get(n.id)!)
 }
 
 // ─── Default collapsed: all non-root nodes that have children ────────────────
@@ -157,7 +183,7 @@ function getDivisionColor(division: string) {
   return DIVISION_COLORS[division]
 }
 
-// ─── Employee node card (LR: target=Left, source=Right) ──────────────────────
+// ─── Employee node card (TB: target=Top, source=Bottom) ─────────────────────
 
 function EmployeeNode({ data }: NodeProps) {
   const { employee, hasChildren, isCollapsed, isRoot } = data as {
@@ -172,13 +198,14 @@ function EmployeeNode({ data }: NodeProps) {
       border: isRoot ? `2px solid ${divColor}` : '1.5px solid #e2e8f0',
       boxShadow: isRoot ? `0 4px 16px ${divColor}33` : '0 2px 8px #0000001a',
       fontFamily: 'inherit', direction: 'rtl',
+      cursor: hasChildren ? 'pointer' : 'default',
     }}>
-      {/* Right color bar (entry side from parent in LR layout) */}
-      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: divColor, borderRadius: '10px 0 0 10px' }} />
+      {/* Top color bar */}
+      <div style={{ height: 4, background: divColor, borderRadius: '10px 10px 0 0' }} />
 
-      <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
+      <Handle type="target" position={Position.Top} style={{ opacity: 0, top: 0 }} />
 
-      <div style={{ padding: '10px 12px 10px 8px' }}>
+      <div style={{ padding: '8px 12px 10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
           <div style={{
             width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
@@ -210,10 +237,10 @@ function EmployeeNode({ data }: NodeProps) {
         </div>
       </div>
 
-      {/* Visual indicator only - click handled by onNodeClick on ReactFlow */}
+      {/* Visual indicator at bottom - click handled by onNodeClick on ReactFlow */}
       {hasChildren && (
         <div style={{
-          position: 'absolute', right: -11, top: '50%', transform: 'translateY(-50%)',
+          position: 'absolute', bottom: -11, left: '50%', transform: 'translateX(-50%)',
           width: 20, height: 20, borderRadius: '50%',
           background: divColor, border: '2px solid #fff',
           color: '#fff', fontSize: 13, fontWeight: 700,
@@ -225,7 +252,7 @@ function EmployeeNode({ data }: NodeProps) {
         </div>
       )}
 
-      <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
+      <Handle type="source" position={Position.Bottom} style={{ opacity: 0, bottom: 0 }} />
     </div>
   )
 }
