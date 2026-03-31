@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState, useRef } from 'react'
+import { useMemo, useCallback, useState, useRef, useEffect } from 'react'
 import {
   ReactFlow,
   Background,
@@ -7,6 +7,7 @@ import {
   Panel,
   Handle,
   Position,
+  useReactFlow,
   type Node,
   type Edge,
   type NodeProps,
@@ -262,6 +263,19 @@ function EmployeeNode({ data }: NodeProps) {
 
 const nodeTypes = { employee: EmployeeNode }
 
+// ─── Auto fit view when nodes change ─────────────────────────────────────────
+
+function AutoFitView({ nodes }: { nodes: Node[] }) {
+  const { fitView } = useReactFlow()
+  const isFirst = useRef(true)
+  useEffect(() => {
+    if (isFirst.current) { isFirst.current = false; return }
+    const t = setTimeout(() => fitView({ padding: 0.15, duration: 400 }), 50)
+    return () => clearTimeout(t)
+  }, [nodes, fitView])
+  return null
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function OrgTreeFlow({ employees }: { employees: Employee[] }) {
@@ -343,6 +357,7 @@ export default function OrgTreeFlow({ employees }: { employees: Employee[] }) {
           if (hasChildren) onToggle(node.id)
         }}
       >
+        <AutoFitView nodes={nodes} />
         <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="#cbd5e1" />
         <Controls showInteractive={false} position="bottom-left" />
         <Panel position="top-left">
