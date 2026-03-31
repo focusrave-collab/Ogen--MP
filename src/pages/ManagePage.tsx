@@ -88,7 +88,7 @@ export default function ManagePage() {
         return emp
       })
       .filter(emp => emp.firstName || emp.lastName || emp.employeeNumber)
-    importEmployees(imported)
+    importEmployees(imported).catch(err => alert('שגיאת ייבוא: ' + (err?.message ?? err)))
   }
 
   function importCSV(e: React.ChangeEvent<HTMLInputElement>) {
