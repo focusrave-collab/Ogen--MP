@@ -204,7 +204,7 @@ function EmployeeNode({ data }: NodeProps) {
       {/* Top color bar */}
       <div style={{ height: 4, background: divColor, borderRadius: '10px 10px 0 0' }} />
 
-      <Handle type="target" position={Position.Top} style={{ opacity: 0, top: 0 }} />
+      <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
 
       <div style={{ padding: '8px 12px 10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
@@ -253,7 +253,7 @@ function EmployeeNode({ data }: NodeProps) {
         </div>
       )}
 
-      <Handle type="source" position={Position.Bottom} style={{ opacity: 0, bottom: 0 }} />
+      <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
     </div>
   )
 }
