@@ -1,49 +1,23 @@
-import { HashRouter as BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider, useAuthStore } from './store/useAuthStore'
+import { useState } from 'react'
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { EmployeeProvider } from './store/useEmployeeStore'
 import Navbar from './components/Navbar'
 import ManagePage from './pages/ManagePage'
 import DisplayPage from './pages/DisplayPage'
-import AuthPage from './pages/AuthPage'
+import PasswordGate from './pages/PasswordGate'
 
-function AppContent() {
-  const { user, loading } = useAuthStore()
+export default function App() {
+  const [authed, setAuthed] = useState(() => sessionStorage.getItem('auth') === '1')
 
-  if (loading) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)',
-      }}>
-        <div style={{ textAlign: 'center', color: 'white' }}>
-          <div style={{
-            width: '48px',
-            height: '48px',
-            border: '4px solid rgba(255,255,255,0.3)',
-            borderTop: '4px solid white',
-            borderRadius: '50%',
-            animation: 'spin 0.8s linear infinite',
-            margin: '0 auto 16px',
-          }} />
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-          <p style={{ fontSize: '16px', opacity: 0.8 }}>טוען...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!user) {
-    return <AuthPage />
+  if (!authed) {
+    return <PasswordGate onSuccess={() => setAuthed(true)} />
   }
 
   return (
     <EmployeeProvider>
-      <BrowserRouter>
+      <HashRouter>
         <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-          <Navbar />
+          <Navbar onLogout={() => { sessionStorage.removeItem('auth'); setAuthed(false) }} />
           <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             <Routes>
               <Route path="/" element={<Navigate to="/manage" replace />} />
@@ -52,15 +26,7 @@ function AppContent() {
             </Routes>
           </div>
         </div>
-      </BrowserRouter>
+      </HashRouter>
     </EmployeeProvider>
-  )
-}
-
-export default function App() {
-  return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
   )
 }
