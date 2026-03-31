@@ -173,8 +173,8 @@ function EmployeeNode({ data }: NodeProps) {
       boxShadow: isRoot ? `0 4px 16px ${divColor}33` : '0 2px 8px #0000001a',
       fontFamily: 'inherit', direction: 'rtl',
     }}>
-      {/* Left color bar (for LR layout) */}
-      <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 4, background: divColor, borderRadius: '0 10px 10px 0' }} />
+      {/* Right color bar (entry side from parent in LR layout) */}
+      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: divColor, borderRadius: '10px 0 0 10px' }} />
 
       <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
 
@@ -210,12 +210,13 @@ function EmployeeNode({ data }: NodeProps) {
         </div>
       </div>
 
-      {/* Toggle button on the LEFT (direction of children in LR) */}
+      {/* Toggle button on the RIGHT (children appear to the right in LR layout) */}
       {hasChildren && (
         <button
-          onClick={() => onToggle(employee.id)}
+          onClick={(e) => { e.stopPropagation(); onToggle(employee.id) }}
+          onMouseDown={(e) => e.stopPropagation()}
           style={{
-            position: 'absolute', left: -12, top: '50%', transform: 'translateY(-50%)',
+            position: 'absolute', right: -12, top: '50%', transform: 'translateY(-50%)',
             width: 22, height: 22, borderRadius: '50%',
             background: divColor, border: '2px solid #fff',
             color: '#fff', fontSize: 14, fontWeight: 700,
