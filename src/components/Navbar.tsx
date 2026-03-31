@@ -1,6 +1,9 @@
 import { NavLink } from 'react-router-dom'
+import { useAuthStore } from '../store/useAuthStore'
 
 export default function Navbar() {
+  const { user, logout } = useAuthStore()
+
   return (
     <nav className="bg-gradient-to-l from-navy-900 to-blue-900 shadow-lg" style={{ background: 'linear-gradient(to left, #0f172a, #1e3a8a)' }}>
       <div className="max-w-7xl mx-auto px-4">
@@ -43,6 +46,41 @@ export default function Navbar() {
               תצוגת עץ
             </NavLink>
           </div>
+
+          {user && (
+            <div className="flex items-center gap-3" dir="rtl">
+              <span
+                style={{
+                  color: 'rgba(255,255,255,0.75)',
+                  fontSize: '13px',
+                  maxWidth: '180px',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {user.email}
+              </span>
+              <button
+                onClick={logout}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  border: '1.5px solid rgba(255,255,255,0.35)',
+                  background: 'transparent',
+                  color: 'white',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'background 0.2s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.15)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >
+                התנתק
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </nav>
