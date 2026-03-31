@@ -19,9 +19,8 @@ export function fromDb(row: any): Employee {
   }
 }
 
-export function toDb(emp: Omit<Employee, 'id'>, userId: string) {
+export function toDb(emp: Omit<Employee, 'id'>, _userId?: string) {
   return {
-    user_id: userId,
     gender: emp.gender,
     employee_number: emp.employeeNumber,
     first_name: emp.firstName,
