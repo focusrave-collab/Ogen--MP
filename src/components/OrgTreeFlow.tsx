@@ -152,6 +152,8 @@ function buildElements(
       id,
       type: 'employee',
       position: { x: 0, y: 0 },
+      sourcePosition: Position.Bottom,
+      targetPosition: Position.Top,
       data: { employee: e, hasChildren, isCollapsed, isRoot, onToggle },
     })
   })
