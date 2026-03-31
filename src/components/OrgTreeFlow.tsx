@@ -263,14 +263,39 @@ function EmployeeNode({ data }: NodeProps) {
 
 const nodeTypes = { employee: EmployeeNode }
 
-// ─── Panel buttons (inside ReactFlow context so fitView is available) ────────
+// ─── Panel buttons (inside ReactFlow context so fitView/viewport is available) ─
 
-function FlowPanel({ onExpandAll, onCollapseAll }: { onExpandAll: () => void; onCollapseAll: () => void }) {
-  const { fitView } = useReactFlow()
+type AnchorRef = React.MutableRefObject<{ id: string; x: number; y: number } | null>
+
+function FlowPanel({ onExpandAll, onCollapseAll, nodes, anchorRef }: {
+  onExpandAll: () => void
+  onCollapseAll: () => void
+  nodes: Node[]
+  anchorRef: AnchorRef
+}) {
+  const { fitView, getViewport, setViewport } = useReactFlow()
+
+  // Initial fitView on mount
   useEffect(() => {
     const t = setTimeout(() => fitView({ padding: 0.15 }), 100)
     return () => clearTimeout(t)
   }, [])
+
+  // When nodes change after a toggle: shift viewport so clicked node stays in place
+  useEffect(() => {
+    if (!anchorRef.current) return
+    const { id, x: oldX, y: oldY } = anchorRef.current
+    anchorRef.current = null
+    const newNode = nodes.find(n => n.id === id)
+    if (!newNode) return
+    const vp = getViewport()
+    setViewport({
+      x: vp.x + (oldX - newNode.position.x) * vp.zoom,
+      y: vp.y + (oldY - newNode.position.y) * vp.zoom,
+      zoom: vp.zoom,
+    })
+  }, [nodes])
+
   return (
     <Panel position="top-left">
       <div style={{ display: 'flex', gap: 6, direction: 'rtl' }}>
@@ -305,7 +330,14 @@ export default function OrgTreeFlow({ employees }: { employees: Employee[] }) {
     setCollapsed(computeDefaultCollapsed(employees))
   }
 
+  // Holds the node position at the moment of click, so we can anchor it after layout
+  const nodesRef = useRef<Node[]>([])
+  const anchorRef = useRef<{ id: string; x: number; y: number } | null>(null)
+
   const onToggle = useCallback((id: string) => {
+    // Record current position BEFORE layout recalculates
+    const node = nodesRef.current.find(n => n.id === id)
+    if (node) anchorRef.current = { id, x: node.position.x, y: node.position.y }
     setCollapsed(prev => {
       const { findManager } = buildLookups(employeesRef.current)
       const childrenOf = buildChildrenMap(employeesRef.current, findManager)
@@ -338,6 +370,7 @@ export default function OrgTreeFlow({ employees }: { employees: Employee[] }) {
     () => buildElements(employees, collapsed, onToggle),
     [employees, collapsed, onToggle]
   )
+  nodesRef.current = nodes
 
   if (employees.length === 0) {
     return (
@@ -368,7 +401,7 @@ export default function OrgTreeFlow({ employees }: { employees: Employee[] }) {
           if (hasChildren) onToggle(node.id)
         }}
       >
-        <FlowPanel onExpandAll={expandAll} onCollapseAll={collapseAll} />
+        <FlowPanel onExpandAll={expandAll} onCollapseAll={collapseAll} nodes={nodes} anchorRef={anchorRef} />
         <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="#cbd5e1" />
         <Controls showInteractive={false} position="bottom-left" />
         <MiniMap
