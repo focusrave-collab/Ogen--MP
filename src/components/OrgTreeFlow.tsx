@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState, useRef, useEffect } from 'react'
+import { useMemo, useCallback, useState, useRef } from 'react'
 import {
   ReactFlow,
   Background,
@@ -263,17 +263,26 @@ function EmployeeNode({ data }: NodeProps) {
 
 const nodeTypes = { employee: EmployeeNode }
 
-// ─── Auto fit view when nodes change ─────────────────────────────────────────
+// ─── Panel buttons (inside ReactFlow context so fitView is available) ────────
 
-function AutoFitView({ nodes }: { nodes: Node[] }) {
+function FlowPanel({ onExpandAll, onCollapseAll }: { onExpandAll: () => void; onCollapseAll: () => void }) {
   const { fitView } = useReactFlow()
-  const isFirst = useRef(true)
-  useEffect(() => {
-    if (isFirst.current) { isFirst.current = false; return }
-    const t = setTimeout(() => fitView({ padding: 0.15, duration: 400 }), 50)
-    return () => clearTimeout(t)
-  }, [nodes, fitView])
-  return null
+  return (
+    <Panel position="top-left">
+      <div style={{ display: 'flex', gap: 6, direction: 'rtl' }}>
+        <button onClick={() => { onExpandAll(); setTimeout(() => fitView({ padding: 0.15, duration: 400 }), 50) }} style={{
+          background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8,
+          padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+          color: '#3b82f6', boxShadow: '0 1px 4px #0001', fontFamily: 'inherit',
+        }}>פתח הכל</button>
+        <button onClick={() => { onCollapseAll(); setTimeout(() => fitView({ padding: 0.15, duration: 400 }), 50) }} style={{
+          background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8,
+          padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+          color: '#64748b', boxShadow: '0 1px 4px #0001', fontFamily: 'inherit',
+        }}>סגור הכל</button>
+      </div>
+    </Panel>
+  )
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -357,23 +366,9 @@ export default function OrgTreeFlow({ employees }: { employees: Employee[] }) {
           if (hasChildren) onToggle(node.id)
         }}
       >
-        <AutoFitView nodes={nodes} />
+        <FlowPanel onExpandAll={expandAll} onCollapseAll={collapseAll} />
         <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="#cbd5e1" />
         <Controls showInteractive={false} position="bottom-left" />
-        <Panel position="top-left">
-          <div style={{ display: 'flex', gap: 6, direction: 'rtl' }}>
-            <button onClick={expandAll} style={{
-              background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8,
-              padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-              color: '#3b82f6', boxShadow: '0 1px 4px #0001', fontFamily: 'inherit',
-            }}>פתח הכל</button>
-            <button onClick={collapseAll} style={{
-              background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8,
-              padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-              color: '#64748b', boxShadow: '0 1px 4px #0001', fontFamily: 'inherit',
-            }}>סגור הכל</button>
-          </div>
-        </Panel>
         <MiniMap
           nodeColor={n => {
             const emp = (n.data as any)?.employee as Employee
