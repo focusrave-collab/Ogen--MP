@@ -1,9 +1,10 @@
-import { useMemo, useCallback, useState } from 'react'
+import { useMemo, useCallback, useState, useRef } from 'react'
 import {
   ReactFlow,
   Background,
   Controls,
   MiniMap,
+  Panel,
   Handle,
   Position,
   type Node,
@@ -262,26 +263,47 @@ const nodeTypes = { employee: EmployeeNode }
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function OrgTreeFlow({ employees }: { employees: Employee[] }) {
-  // toggled = nodes the user has explicitly clicked (XOR with defaultCollapsed)
-  const [toggled, setToggled] = useState<Set<string>>(new Set())
+  const employeesRef = useRef(employees)
+  employeesRef.current = employees
 
   const defaultCollapsed = useMemo(() => computeDefaultCollapsed(employees), [employees])
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => computeDefaultCollapsed(employees))
 
-  const collapsed = useMemo(() => {
-    const result = new Set(defaultCollapsed)
-    toggled.forEach(id => {
-      result.has(id) ? result.delete(id) : result.add(id)
-    })
-    return result
-  }, [defaultCollapsed, toggled])
+  // Reset when employee list changes (import etc.)
+  const prevCountRef = useRef(employees.length)
+  if (prevCountRef.current !== employees.length) {
+    prevCountRef.current = employees.length
+    setCollapsed(computeDefaultCollapsed(employees))
+  }
 
   const onToggle = useCallback((id: string) => {
-    setToggled(prev => {
+    setCollapsed(prev => {
+      const { findManager } = buildLookups(employeesRef.current)
+      const childrenOf = buildChildrenMap(employeesRef.current, findManager)
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+
+      if (next.has(id)) {
+        // Opening: just remove from collapsed
+        next.delete(id)
+      } else {
+        // Closing: collapse this node AND reset all descendants to default
+        next.add(id)
+        function resetDescendants(nodeId: string) {
+          ;(childrenOf.get(nodeId) ?? []).forEach(childId => {
+            const childHasChildren = (childrenOf.get(childId) ?? []).length > 0
+            if (childHasChildren) next.add(childId)
+            else next.delete(childId)
+            resetDescendants(childId)
+          })
+        }
+        resetDescendants(id)
+      }
       return next
     })
   }, [])
+
+  const expandAll = useCallback(() => setCollapsed(new Set()), [])
+  const collapseAll = useCallback(() => setCollapsed(defaultCollapsed), [defaultCollapsed])
 
   const { nodes, edges } = useMemo(
     () => buildElements(employees, collapsed, onToggle),
@@ -321,6 +343,20 @@ export default function OrgTreeFlow({ employees }: { employees: Employee[] }) {
       >
         <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="#cbd5e1" />
         <Controls showInteractive={false} position="bottom-left" />
+        <Panel position="top-left">
+          <div style={{ display: 'flex', gap: 6, direction: 'rtl' }}>
+            <button onClick={expandAll} style={{
+              background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8,
+              padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              color: '#3b82f6', boxShadow: '0 1px 4px #0001', fontFamily: 'inherit',
+            }}>פתח הכל</button>
+            <button onClick={collapseAll} style={{
+              background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8,
+              padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              color: '#64748b', boxShadow: '0 1px 4px #0001', fontFamily: 'inherit',
+            }}>סגור הכל</button>
+          </div>
+        </Panel>
         <MiniMap
           nodeColor={n => {
             const emp = (n.data as any)?.employee as Employee
