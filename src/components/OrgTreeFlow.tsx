@@ -16,11 +16,16 @@ import {
 import '@xyflow/react/dist/style.css'
 import dagre from '@dagrejs/dagre'
 import type { Employee } from '../types/employee'
+import type { OrgUnit } from '../types/orgUnit'
 
-const NODE_WIDTH = 210
-const NODE_HEIGHT = 115
+export type TreeMode = 'manager' | 'orgunit' | 'combined'
 
-// ─── Lookup helpers (shared) ─────────────────────────────────────────────────
+const EMP_W = 210
+const EMP_H = 115
+const UNIT_W = 240
+const UNIT_H = 72
+
+// ─── Lookup helpers ───────────────────────────────────────────────────────────
 
 function buildLookups(employees: Employee[]) {
   const byNumber = new Map<string, Employee>()
@@ -28,12 +33,8 @@ function buildLookups(employees: Employee[]) {
   const byLastName = new Map<string, Employee>()
   employees.forEach(e => {
     if (e.employeeNumber) byNumber.set(e.employeeNumber.trim(), e)
-    const first = e.firstName.trim()
-    const last = e.lastName.trim()
-    if (first || last) {
-      byFullName.set(`${first} ${last}`.trim(), e)
-      byFullName.set(`${last} ${first}`.trim(), e)
-    }
+    const first = e.firstName.trim(); const last = e.lastName.trim()
+    if (first || last) { byFullName.set(`${first} ${last}`.trim(), e); byFullName.set(`${last} ${first}`.trim(), e) }
     if (last) byLastName.set(last, e)
   })
   function findManager(dm: string): Employee | undefined {
@@ -49,137 +50,54 @@ function buildChildrenMap(employees: Employee[], findManager: (dm: string) => Em
   employees.forEach(e => {
     const mgr = findManager(e.directManager)
     if (mgr && mgr.id !== e.id) {
-      const arr = childrenOf.get(mgr.id) ?? []
-      arr.push(e.id)
-      childrenOf.set(mgr.id, arr)
+      const arr = childrenOf.get(mgr.id) ?? []; arr.push(e.id); childrenOf.set(mgr.id, arr)
     }
   })
   return childrenOf
 }
 
-// ─── Dagre layout (TB) ───────────────────────────────────────────────────────
+// ─── Dagre layout ─────────────────────────────────────────────────────────────
 
-function applyDagreLayout(nodes: Node[], edges: Edge[]) {
+function applyDagreLayout(nodes: Node[], edges: Edge[], nodeSizes: Map<string, { w: number; h: number }>) {
   const g = new dagre.graphlib.Graph()
   g.setDefaultEdgeLabel(() => ({}))
   g.setGraph({ rankdir: 'TB', nodesep: 60, ranksep: 80, marginx: 40, marginy: 40 })
 
-  nodes.forEach(n => g.setNode(n.id, { width: NODE_WIDTH, height: NODE_HEIGHT }))
+  nodes.forEach(n => {
+    const s = nodeSizes.get(n.id) ?? { w: EMP_W, h: EMP_H }
+    g.setNode(n.id, { width: s.w, height: s.h })
+  })
   edges.forEach(e => g.setEdge(e.source, e.target))
   dagre.layout(g)
 
   const layouted = nodes.map(n => {
     const pos = g.node(n.id)
-    return { ...n, position: { x: pos.x - NODE_WIDTH / 2, y: pos.y - NODE_HEIGHT / 2 } }
+    const s = nodeSizes.get(n.id) ?? { w: EMP_W, h: EMP_H }
+    return { ...n, position: { x: pos.x - s.w / 2, y: pos.y - s.h / 2 } }
   })
 
-  // Add extra horizontal spacing between nodes from different parents
+  // Extra spacing between siblings from different parents
   const parentOf = new Map<string, string>()
   edges.forEach(e => parentOf.set(e.target, e.source))
-
   const byRank = new Map<number, Node[]>()
-  layouted.forEach(n => {
-    const rank = Math.round(n.position.y)
-    byRank.set(rank, [...(byRank.get(rank) ?? []), n])
-  })
-
+  layouted.forEach(n => { const r = Math.round(n.position.y); byRank.set(r, [...(byRank.get(r) ?? []), n]) })
   const adjusted = new Map(layouted.map(n => [n.id, { ...n }]))
   byRank.forEach(rankNodes => {
     if (rankNodes.length < 2) return
     const sorted = [...rankNodes].sort((a, b) => a.position.x - b.position.x)
     let offset = 0
     for (let i = 1; i < sorted.length; i++) {
-      const prevParent = parentOf.get(sorted[i - 1].id)
-      const currParent = parentOf.get(sorted[i].id)
-      if (prevParent !== currParent) offset += 50
-      const node = adjusted.get(sorted[i].id)!
-      node.position = { x: node.position.x + offset, y: node.position.y }
+      if (parentOf.get(sorted[i - 1].id) !== parentOf.get(sorted[i].id)) offset += 50
+      adjusted.get(sorted[i].id)!.position.x += offset
     }
   })
-
   return layouted.map(n => adjusted.get(n.id)!)
 }
 
-// ─── Default collapsed: all non-root nodes that have children ────────────────
-
-function computeDefaultCollapsed(employees: Employee[]): Set<string> {
-  const { findManager } = buildLookups(employees)
-  const childrenOf = buildChildrenMap(employees, findManager)
-  const result = new Set<string>()
-  employees.forEach(e => {
-    const mgr = findManager(e.directManager)
-    const isRoot = !mgr || mgr.id === e.id
-    if (!isRoot && (childrenOf.get(e.id) ?? []).length > 0) {
-      result.add(e.id)
-    }
-  })
-  return result
-}
-
-// ─── Build nodes + edges ─────────────────────────────────────────────────────
-
-function buildElements(
-  employees: Employee[],
-  collapsed: Set<string>,
-  onToggle: (id: string) => void
-): { nodes: Node[]; edges: Edge[] } {
-  const { findManager } = buildLookups(employees)
-  const childrenOf = buildChildrenMap(employees, findManager)
-  const empById = new Map(employees.map(e => [e.id, e]))
-
-  const visible = new Set<string>()
-  function visit(id: string) {
-    visible.add(id)
-    if (!collapsed.has(id)) {
-      ;(childrenOf.get(id) ?? []).forEach(visit)
-    }
-  }
-  employees.forEach(e => {
-    const mgr = findManager(e.directManager)
-    if (!mgr || mgr.id === e.id) visit(e.id)
-  })
-
-  const nodes: Node[] = []
-  const edges: Edge[] = []
-
-  visible.forEach(id => {
-    const e = empById.get(id)!
-    const hasChildren = (childrenOf.get(id) ?? []).length > 0
-    const isCollapsed = collapsed.has(id)
-    const mgr = findManager(e.directManager)
-    const isRoot = !mgr || mgr.id === e.id
-
-    nodes.push({
-      id,
-      type: 'employee',
-      position: { x: 0, y: 0 },
-      sourcePosition: Position.Bottom,
-      targetPosition: Position.Top,
-      data: { employee: e, hasChildren, isCollapsed, isRoot, onToggle },
-    })
-  })
-
-  visible.forEach(id => {
-    const e = empById.get(id)!
-    const mgr = findManager(e.directManager)
-    if (mgr && visible.has(mgr.id)) {
-      edges.push({
-        id: `${mgr.id}→${id}`,
-        source: mgr.id,
-        target: id,
-        type: 'smoothstep',
-        style: { stroke: '#94a3b8', strokeWidth: 1.5 },
-      })
-    }
-  })
-
-  return { nodes: applyDagreLayout(nodes, edges), edges }
-}
-
-// ─── Colors ──────────────────────────────────────────────────────────────────
+// ─── Colors ───────────────────────────────────────────────────────────────────
 
 const DIVISION_COLORS: Record<string, string> = {}
-const PALETTE = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#06b6d4','#f97316','#ec4899','#ef4444']
+const PALETTE = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899', '#ef4444']
 let colorIdx = 0
 function getDivisionColor(division: string) {
   if (!division) return '#64748b'
@@ -187,28 +105,27 @@ function getDivisionColor(division: string) {
   return DIVISION_COLORS[division]
 }
 
-// ─── Employee node card (TB: target=Top, source=Bottom) ─────────────────────
+const TYPE_COLOR: Record<string, string> = { 'חטיבה': '#1e40af', 'מחלקה': '#6d28d9', 'תכנית': '#065f46' }
+const TYPE_BG: Record<string, string> = { 'חטיבה': '#dbeafe', 'מחלקה': '#ede9fe', 'תכנית': '#d1fae5' }
+
+// ─── Employee node ────────────────────────────────────────────────────────────
 
 function EmployeeNode({ data }: NodeProps) {
   const { employee, hasChildren, isCollapsed, isRoot } = data as {
-    employee: Employee; hasChildren: boolean; isCollapsed: boolean; isRoot: boolean; onToggle: (id: string) => void
+    employee: Employee; hasChildren: boolean; isCollapsed: boolean; isRoot: boolean
   }
-  const initials = (`${employee.firstName.charAt(0)}${employee.lastName.charAt(0)}`) || '?'
+  const initials = `${employee.firstName.charAt(0)}${employee.lastName.charAt(0)}` || '?'
   const divColor = getDivisionColor(employee.division)
 
   return (
     <div style={{
-      width: NODE_WIDTH, background: '#fff', borderRadius: 12, position: 'relative',
+      width: EMP_W, background: '#fff', borderRadius: 12, position: 'relative',
       border: isRoot ? `2px solid ${divColor}` : '1.5px solid #e2e8f0',
       boxShadow: isRoot ? `0 4px 16px ${divColor}33` : '0 2px 8px #0000001a',
-      fontFamily: 'inherit', direction: 'rtl',
-      cursor: hasChildren ? 'pointer' : 'default',
+      fontFamily: 'inherit', direction: 'rtl', cursor: hasChildren ? 'pointer' : 'default',
     }}>
-      {/* Top color bar */}
       <div style={{ height: 4, background: divColor, borderRadius: '10px 10px 0 0' }} />
-
       <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
-
       <div style={{ padding: '8px 12px 10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
           <div style={{
@@ -221,12 +138,9 @@ function EmployeeNode({ data }: NodeProps) {
             <div style={{ fontWeight: 600, fontSize: 13, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {employee.firstName} {employee.lastName}
             </div>
-            {employee.employeeNumber && (
-              <div style={{ fontSize: 10, color: '#94a3b8' }}>{employee.employeeNumber}</div>
-            )}
+            {employee.employeeNumber && <div style={{ fontSize: 10, color: '#94a3b8' }}>{employee.employeeNumber}</div>}
           </div>
         </div>
-
         {employee.role && (
           <div style={{
             display: 'inline-block', background: `${divColor}18`, color: divColor,
@@ -234,80 +148,378 @@ function EmployeeNode({ data }: NodeProps) {
             maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>{employee.role}</div>
         )}
-
         <div style={{ fontSize: 10, color: '#64748b', lineHeight: 1.6 }}>
           {employee.department && <div>מחלקה: {employee.department}</div>}
           {employee.division && <div>חטיבה: {employee.division}</div>}
         </div>
       </div>
-
-      {/* Visual indicator at bottom - click handled by onNodeClick on ReactFlow */}
       {hasChildren && (
         <div style={{
           position: 'absolute', bottom: -11, left: '50%', transform: 'translateX(-50%)',
-          width: 20, height: 20, borderRadius: '50%',
-          background: divColor, border: '2px solid #fff',
-          color: '#fff', fontSize: 13, fontWeight: 700,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 10, lineHeight: 1, boxShadow: '0 2px 6px #0003',
-          pointerEvents: 'none',
-        }}>
-          {isCollapsed ? '+' : '−'}
-        </div>
+          width: 20, height: 20, borderRadius: '50%', background: divColor, border: '2px solid #fff',
+          color: '#fff', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center',
+          justifyContent: 'center', zIndex: 10, lineHeight: 1, boxShadow: '0 2px 6px #0003', pointerEvents: 'none',
+        }}>{isCollapsed ? '+' : '−'}</div>
       )}
-
       <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
     </div>
   )
 }
 
-const nodeTypes = { employee: EmployeeNode }
+// ─── Org Unit node ────────────────────────────────────────────────────────────
 
-// ─── Panel buttons (inside ReactFlow context so fitView/viewport is available) ─
+function UnitNode({ data }: NodeProps) {
+  const { unit, managerName, hasChildren, isCollapsed } = data as {
+    unit: OrgUnit; managerName: string; hasChildren: boolean; isCollapsed: boolean
+  }
+  const color = TYPE_COLOR[unit.type] ?? '#334155'
+  const bg = TYPE_BG[unit.type] ?? '#f1f5f9'
 
-type AnchorRef = React.MutableRefObject<{ id: string; x: number; y: number } | null>
+  return (
+    <div style={{
+      width: UNIT_W, background: bg, borderRadius: 12, position: 'relative',
+      border: `2px solid ${color}`, boxShadow: `0 3px 12px ${color}22`,
+      fontFamily: 'inherit', direction: 'rtl', cursor: hasChildren ? 'pointer' : 'default',
+    }}>
+      <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
+      <div style={{ padding: '10px 14px 12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{
+            background: color, color: '#fff', borderRadius: 6, padding: '2px 8px',
+            fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap',
+          }}>{unit.type}</div>
+          <div style={{ fontWeight: 700, fontSize: 14, color, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {unit.name}
+          </div>
+        </div>
+        {managerName && (
+          <div style={{ fontSize: 10, color: '#475569', marginTop: 5, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span>👤</span><span>{managerName}</span>
+          </div>
+        )}
+      </div>
+      {hasChildren && (
+        <div style={{
+          position: 'absolute', bottom: -11, left: '50%', transform: 'translateX(-50%)',
+          width: 20, height: 20, borderRadius: '50%', background: color, border: '2px solid #fff',
+          color: '#fff', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center',
+          justifyContent: 'center', zIndex: 10, lineHeight: 1, boxShadow: '0 2px 6px #0003', pointerEvents: 'none',
+        }}>{isCollapsed ? '+' : '−'}</div>
+      )}
+      <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
+    </div>
+  )
+}
+
+const nodeTypes = { employee: EmployeeNode, unit: UnitNode }
+
+// ─── Mode 1: Manager tree ─────────────────────────────────────────────────────
+
+
+function buildManagerElements(employees: Employee[], collapsed: Set<string>, onToggle: (id: string) => void) {
+  const { findManager } = buildLookups(employees)
+  const childrenOf = buildChildrenMap(employees, findManager)
+  const empById = new Map(employees.map(e => [e.id, e]))
+  const visible = new Set<string>()
+
+  function visit(id: string) {
+    visible.add(id)
+    if (!collapsed.has(id)) (childrenOf.get(id) ?? []).forEach(visit)
+  }
+  employees.forEach(e => {
+    const mgr = findManager(e.directManager)
+    if (!mgr || mgr.id === e.id) visit(e.id)
+  })
+
+  const nodes: Node[] = []
+  const edges: Edge[] = []
+  const sizes = new Map<string, { w: number; h: number }>()
+
+  visible.forEach(id => {
+    const e = empById.get(id)!
+    const hasChildren = (childrenOf.get(id) ?? []).length > 0
+    const mgr = findManager(e.directManager)
+    const isRoot = !mgr || mgr.id === e.id
+    sizes.set(id, { w: EMP_W, h: EMP_H })
+    nodes.push({
+      id, type: 'employee', position: { x: 0, y: 0 },
+      sourcePosition: Position.Bottom, targetPosition: Position.Top,
+      data: { employee: e, hasChildren, isCollapsed: collapsed.has(id), isRoot, onToggle },
+    })
+  })
+  visible.forEach(id => {
+    const e = empById.get(id)!
+    const mgr = findManager(e.directManager)
+    if (mgr && visible.has(mgr.id)) {
+      edges.push({ id: `${mgr.id}→${id}`, source: mgr.id, target: id, type: 'smoothstep', style: { stroke: '#94a3b8', strokeWidth: 1.5 } })
+    }
+  })
+  return { nodes: applyDagreLayout(nodes, edges, sizes), edges }
+}
+
+// ─── Mode 2: Org unit tree ────────────────────────────────────────────────────
+
+function buildOrgUnitElements(orgUnits: OrgUnit[], employees: Employee[], collapsed: Set<string>, onToggle: (id: string) => void) {
+  const empByNumber = new Map(employees.map(e => [e.employeeNumber?.trim(), e]))
+  function managerName(num: string) {
+    if (!num) return ''
+    const e = empByNumber.get(num.trim())
+    return e ? `${e.firstName} ${e.lastName}`.trim() : num
+  }
+
+  // Build unit parent map: unit.name+type → unit
+  const unitById = new Map(orgUnits.map(u => [u.id, u]))
+  const childUnitsOf = new Map<string, string[]>()
+  const unitRoots: string[] = []
+
+  orgUnits.forEach(u => {
+    if (!u.parentName) { unitRoots.push(u.id); return }
+    const parent = orgUnits.find(p => p.name === u.parentName)
+    if (parent) {
+      const arr = childUnitsOf.get(parent.id) ?? []; arr.push(u.id); childUnitsOf.set(parent.id, arr)
+    } else {
+      unitRoots.push(u.id)
+    }
+  })
+
+  const visible = new Set<string>()
+  function visit(id: string) {
+    visible.add(id)
+    if (!collapsed.has(id)) (childUnitsOf.get(id) ?? []).forEach(visit)
+  }
+  unitRoots.forEach(visit)
+
+  const nodes: Node[] = []
+  const edges: Edge[] = []
+  const sizes = new Map<string, { w: number; h: number }>()
+
+  visible.forEach(id => {
+    const u = unitById.get(id)!
+    const hasChildren = (childUnitsOf.get(id) ?? []).length > 0
+    sizes.set(id, { w: UNIT_W, h: UNIT_H })
+    nodes.push({
+      id, type: 'unit', position: { x: 0, y: 0 },
+      sourcePosition: Position.Bottom, targetPosition: Position.Top,
+      data: { unit: u, managerName: managerName(u.managerEmployeeNumber), hasChildren, isCollapsed: collapsed.has(id), onToggle },
+    })
+  })
+  visible.forEach(id => {
+    const u = unitById.get(id)!
+    if (!u.parentName) return
+    const parent = orgUnits.find(p => p.name === u.parentName)
+    if (parent && visible.has(parent.id))
+      edges.push({ id: `${parent.id}→${id}`, source: parent.id, target: id, type: 'smoothstep', style: { stroke: '#94a3b8', strokeWidth: 1.5 } })
+  })
+  return { nodes: applyDagreLayout(nodes, edges, sizes), edges }
+}
+
+// ─── Mode 3: Combined tree ────────────────────────────────────────────────────
+
+function buildCombinedElements(orgUnits: OrgUnit[], employees: Employee[], collapsed: Set<string>, onToggle: (id: string) => void) {
+  const empByNumber = new Map(employees.map(e => [e.employeeNumber?.trim(), e]))
+  const { findManager } = buildLookups(employees)
+  const empChildrenOf = buildChildrenMap(employees, findManager)
+
+  function managerName(num: string) {
+    if (!num) return ''
+    const e = empByNumber.get(num.trim())
+    return e ? `${e.firstName} ${e.lastName}`.trim() : num
+  }
+
+  // Unit hierarchy
+  const childUnitsOf = new Map<string, string[]>()
+  const unitRoots: string[] = []
+  orgUnits.forEach(u => {
+    if (!u.parentName) { unitRoots.push(u.id); return }
+    const parent = orgUnits.find(p => p.name === u.parentName)
+    if (parent) { const arr = childUnitsOf.get(parent.id) ?? []; arr.push(u.id); childUnitsOf.set(parent.id, arr) }
+    else unitRoots.push(u.id)
+  })
+
+  // Map each employee to their most-specific org unit
+  const unitByName = new Map(orgUnits.map(u => [`${u.type}::${u.name}`, u]))
+  function homeUnitId(emp: Employee): string | null {
+    if (emp.program?.trim()) { const u = unitByName.get(`תכנית::${emp.program.trim()}`); if (u) return u.id }
+    if (emp.department?.trim()) { const u = unitByName.get(`מחלקה::${emp.department.trim()}`); if (u) return u.id }
+    if (emp.division?.trim()) { const u = unitByName.get(`חטיבה::${emp.division.trim()}`); if (u) return u.id }
+    return null
+  }
+
+  // Root employees per unit: those whose manager is outside their unit (or has no unit-manager)
+  const empRootsOf = new Map<string, string[]>() // unitId → employee ids that are roots
+  employees.forEach(emp => {
+    const uid = homeUnitId(emp)
+    if (!uid) return
+    const mgr = findManager(emp.directManager)
+    const mgrUnit = mgr ? homeUnitId(mgr) : null
+    // Root in unit if: no manager, or manager is self, or manager is in a different/parent unit
+    const isRootInUnit = !mgr || mgr.id === emp.id || mgrUnit !== uid
+    if (isRootInUnit) {
+      const arr = empRootsOf.get(uid) ?? []; arr.push(emp.id); empRootsOf.set(uid, arr)
+    }
+  })
+
+  // Children of unit = sub-units + root employees (only when unit not collapsed)
+  function unitChildren(uid: string): string[] {
+    return [...(childUnitsOf.get(uid) ?? []), ...(empRootsOf.get(uid) ?? []).map(id => `emp::${id}`)]
+  }
+  function hasUnitChildren(uid: string) { return unitChildren(uid).length > 0 }
+
+  // Visibility traversal
+  const visibleUnits = new Set<string>()
+  const visibleEmps = new Set<string>()
+
+  function visitUnit(uid: string) {
+    visibleUnits.add(uid)
+    if (collapsed.has(uid)) return
+    ;(childUnitsOf.get(uid) ?? []).forEach(visitUnit)
+    ;(empRootsOf.get(uid) ?? []).forEach(eid => visitEmp(eid, uid))
+  }
+  function visitEmp(eid: string, unitId: string) {
+    visibleEmps.add(eid)
+    if (collapsed.has(`emp::${eid}`)) return
+    ;(empChildrenOf.get(eid) ?? []).forEach(childId => {
+      // Only show if child is in same or sub-unit
+      const childUnitId = homeUnitId(employees.find(e => e.id === childId)!)
+      if (childUnitId === unitId || isDescendantUnit(childUnitId, unitId)) {
+        visitEmp(childId, unitId)
+      }
+    })
+  }
+  function isDescendantUnit(candidate: string | null, ancestor: string): boolean {
+    if (!candidate) return false
+    const u = orgUnits.find(u => u.id === candidate)
+    if (!u || !u.parentName) return false
+    const parent = orgUnits.find(p => p.name === u.parentName)
+    if (!parent) return false
+    return parent.id === ancestor || isDescendantUnit(parent.id, ancestor)
+  }
+
+  unitRoots.forEach(visitUnit)
+
+  const nodes: Node[] = []
+  const edges: Edge[] = []
+  const sizes = new Map<string, { w: number; h: number }>()
+  const empById = new Map(employees.map(e => [e.id, e]))
+
+  visibleUnits.forEach(uid => {
+    const u = orgUnits.find(o => o.id === uid)!
+    sizes.set(uid, { w: UNIT_W, h: UNIT_H })
+    nodes.push({
+      id: uid, type: 'unit', position: { x: 0, y: 0 },
+      sourcePosition: Position.Bottom, targetPosition: Position.Top,
+      data: { unit: u, managerName: managerName(u.managerEmployeeNumber), hasChildren: hasUnitChildren(uid), isCollapsed: collapsed.has(uid), onToggle: (id: string) => onToggle(id) },
+    })
+  })
+
+  visibleEmps.forEach(eid => {
+    const e = empById.get(eid)!
+    const nodeId = `emp::${eid}`
+    const actualHasChildren = (empChildrenOf.get(eid) ?? []).length > 0
+    sizes.set(nodeId, { w: EMP_W, h: EMP_H })
+    nodes.push({
+      id: nodeId, type: 'employee', position: { x: 0, y: 0 },
+      sourcePosition: Position.Bottom, targetPosition: Position.Top,
+      data: {
+        employee: e, hasChildren: actualHasChildren,
+        isCollapsed: collapsed.has(nodeId), isRoot: false,
+        onToggle: (id: string) => onToggle(id),
+      },
+    })
+  })
+
+  // Edges: unit→unit, unit→empRoot, emp→emp
+  visibleUnits.forEach(uid => {
+    if (!collapsed.has(uid)) {
+      ;(childUnitsOf.get(uid) ?? []).forEach(childUid => {
+        if (visibleUnits.has(childUid))
+          edges.push({ id: `u${uid}→u${childUid}`, source: uid, target: childUid, type: 'smoothstep', style: { stroke: '#94a3b8', strokeWidth: 1.5 } })
+      })
+      ;(empRootsOf.get(uid) ?? []).forEach(eid => {
+        if (visibleEmps.has(eid))
+          edges.push({ id: `u${uid}→e${eid}`, source: uid, target: `emp::${eid}`, type: 'smoothstep', style: { stroke: '#cbd5e1', strokeWidth: 1.5 } })
+      })
+    }
+  })
+  visibleEmps.forEach(eid => {
+    if (!collapsed.has(`emp::${eid}`)) {
+      ;(empChildrenOf.get(eid) ?? []).forEach(cid => {
+        if (visibleEmps.has(cid))
+          edges.push({ id: `e${eid}→e${cid}`, source: `emp::${eid}`, target: `emp::${cid}`, type: 'smoothstep', style: { stroke: '#cbd5e1', strokeWidth: 1.5 } })
+      })
+    }
+  })
+
+  return { nodes: applyDagreLayout(nodes, edges, sizes), edges }
+}
+
+// ─── Default collapsed per mode ───────────────────────────────────────────────
+
+function computeDefaultCollapsed(employees: Employee[], orgUnits: OrgUnit[], mode: TreeMode): Set<string> {
+  const result = new Set<string>()
+  if (mode === 'manager') {
+    const { findManager } = buildLookups(employees)
+    const childrenOf = buildChildrenMap(employees, findManager)
+    employees.forEach(e => {
+      const mgr = findManager(e.directManager)
+      const isRoot = !mgr || mgr.id === e.id
+      if (!isRoot && (childrenOf.get(e.id) ?? []).length > 0) result.add(e.id)
+    })
+  } else if (mode === 'orgunit') {
+    const childUnitsOf = new Map<string, string[]>()
+    orgUnits.forEach(u => {
+      const parent = orgUnits.find(p => p.name === u.parentName)
+      if (parent) { const arr = childUnitsOf.get(parent.id) ?? []; arr.push(u.id); childUnitsOf.set(parent.id, arr) }
+    })
+    orgUnits.forEach(u => {
+      if (u.parentName && (childUnitsOf.get(u.id) ?? []).length > 0) result.add(u.id)
+    })
+  } else {
+    // combined: collapse all non-root units, all emp nodes with children
+    const childUnitsOf = new Map<string, string[]>()
+    orgUnits.forEach(u => {
+      const parent = orgUnits.find(p => p.name === u.parentName)
+      if (parent) { const arr = childUnitsOf.get(parent.id) ?? []; arr.push(u.id); childUnitsOf.set(parent.id, arr) }
+    })
+    orgUnits.forEach(u => {
+      if (u.parentName) result.add(u.id)
+    })
+    const { findManager } = buildLookups(employees)
+    const empChildrenOf = buildChildrenMap(employees, findManager)
+    employees.forEach(e => {
+      if ((empChildrenOf.get(e.id) ?? []).length > 0) result.add(`emp::${e.id}`)
+    })
+  }
+  return result
+}
+
+// ─── FlowPanel ────────────────────────────────────────────────────────────────
 
 function FlowPanel({ onExpandAll, onCollapseAll, nodes, anchorRef }: {
-  onExpandAll: () => void
-  onCollapseAll: () => void
-  nodes: Node[]
-  anchorRef: AnchorRef
+  onExpandAll: () => void; onCollapseAll: () => void
+  nodes: Node[]; anchorRef: React.MutableRefObject<{ id: string; x: number; y: number } | null>
 }) {
   const { fitView, getViewport, setViewport } = useReactFlow()
-
-  // Initial fitView on mount
-  useEffect(() => {
-    const t = setTimeout(() => fitView({ padding: 0.15 }), 100)
-    return () => clearTimeout(t)
-  }, [])
-
-  // When nodes change after a toggle: shift viewport so clicked node stays in place
+  useEffect(() => { const t = setTimeout(() => fitView({ padding: 0.15 }), 100); return () => clearTimeout(t) }, [])
   useEffect(() => {
     if (!anchorRef.current) return
-    const { id, x: oldX, y: oldY } = anchorRef.current
-    anchorRef.current = null
+    const { id, x: oldX, y: oldY } = anchorRef.current; anchorRef.current = null
     const newNode = nodes.find(n => n.id === id)
     if (!newNode) return
     const vp = getViewport()
-    setViewport({
-      x: vp.x + (oldX - newNode.position.x) * vp.zoom,
-      y: vp.y + (oldY - newNode.position.y) * vp.zoom,
-      zoom: vp.zoom,
-    })
+    setViewport({ x: vp.x + (oldX - newNode.position.x) * vp.zoom, y: vp.y + (oldY - newNode.position.y) * vp.zoom, zoom: vp.zoom })
   }, [nodes])
 
   return (
     <Panel position="top-left">
       <div style={{ display: 'flex', gap: 6, direction: 'rtl' }}>
         <button onClick={() => { onExpandAll(); setTimeout(() => fitView({ padding: 0.15, duration: 400 }), 50) }} style={{
-          background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8,
-          padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-          color: '#3b82f6', boxShadow: '0 1px 4px #0001', fontFamily: 'inherit',
+          background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 12px',
+          fontSize: 12, fontWeight: 600, cursor: 'pointer', color: '#3b82f6', boxShadow: '0 1px 4px #0001', fontFamily: 'inherit',
         }}>פתח הכל</button>
         <button onClick={() => { onCollapseAll(); setTimeout(() => fitView({ padding: 0.15, duration: 400 }), 50) }} style={{
-          background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8,
-          padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-          color: '#64748b', boxShadow: '0 1px 4px #0001', fontFamily: 'inherit',
+          background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 12px',
+          fontSize: 12, fontWeight: 600, cursor: 'pointer', color: '#64748b', boxShadow: '0 1px 4px #0001', fontFamily: 'inherit',
         }}>סגור הכל</button>
       </div>
     </Panel>
@@ -316,71 +528,90 @@ function FlowPanel({ onExpandAll, onCollapseAll, nodes, anchorRef }: {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function OrgTreeFlow({ employees }: { employees: Employee[] }) {
+export default function OrgTreeFlow({ employees, orgUnits = [], mode = 'manager' }: {
+  employees: Employee[]
+  orgUnits?: OrgUnit[]
+  mode?: TreeMode
+}) {
   const employeesRef = useRef(employees)
   employeesRef.current = employees
+  const orgUnitsRef = useRef(orgUnits)
+  orgUnitsRef.current = orgUnits
 
-  const defaultCollapsed = useMemo(() => computeDefaultCollapsed(employees), [employees])
-  const [collapsed, setCollapsed] = useState<Set<string>>(() => computeDefaultCollapsed(employees))
+  const defaultCollapsed = useMemo(() => computeDefaultCollapsed(employees, orgUnits, mode), [employees, orgUnits, mode])
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => computeDefaultCollapsed(employees, orgUnits, mode))
 
-  // Reset when employee list changes (import etc.)
-  const prevCountRef = useRef(employees.length)
-  if (prevCountRef.current !== employees.length) {
-    prevCountRef.current = employees.length
-    setCollapsed(computeDefaultCollapsed(employees))
-  }
+  // Reset on mode or data change
+  const prevKeyRef = useRef('')
+  const key = `${mode}-${employees.length}-${orgUnits.length}`
+  if (prevKeyRef.current !== key) { prevKeyRef.current = key; setCollapsed(computeDefaultCollapsed(employees, orgUnits, mode)) }
 
-  // Holds the node position at the moment of click, so we can anchor it after layout
   const nodesRef = useRef<Node[]>([])
   const anchorRef = useRef<{ id: string; x: number; y: number } | null>(null)
 
   const onToggle = useCallback((id: string) => {
-    // Record current position BEFORE layout recalculates
     const node = nodesRef.current.find(n => n.id === id)
     if (node) anchorRef.current = { id, x: node.position.x, y: node.position.y }
+
     setCollapsed(prev => {
-      const { findManager } = buildLookups(employeesRef.current)
-      const childrenOf = buildChildrenMap(employeesRef.current, findManager)
+      const emps = employeesRef.current
+      const units = orgUnitsRef.current
+      const { findManager } = buildLookups(emps)
+      const empChildrenOf = buildChildrenMap(emps, findManager)
       const next = new Set(prev)
 
       if (next.has(id)) {
-        // Opening: just remove from collapsed
         next.delete(id)
       } else {
-        // Closing: collapse this node AND reset all descendants to default
         next.add(id)
-        function resetDescendants(nodeId: string) {
-          ;(childrenOf.get(nodeId) ?? []).forEach(childId => {
-            const childHasChildren = (childrenOf.get(childId) ?? []).length > 0
-            if (childHasChildren) next.add(childId)
-            else next.delete(childId)
-            resetDescendants(childId)
+        // Reset descendants
+        function resetEmpDescendants(eid: string) {
+          ;(empChildrenOf.get(eid) ?? []).forEach(cid => {
+            const cNodeId = mode === 'combined' ? `emp::${cid}` : cid
+            if ((empChildrenOf.get(cid) ?? []).length > 0) next.add(cNodeId)
+            else next.delete(cNodeId)
+            resetEmpDescendants(cid)
           })
         }
-        resetDescendants(id)
+        // For unit nodes
+        if (mode !== 'manager') {
+          const childUnitsOf = new Map<string, string[]>()
+          units.forEach(u => {
+            const parent = units.find(p => p.name === u.parentName)
+            if (parent) { const arr = childUnitsOf.get(parent.id) ?? []; arr.push(u.id); childUnitsOf.set(parent.id, arr) }
+          })
+          function resetUnitDescendants(uid: string) {
+            ;(childUnitsOf.get(uid) ?? []).forEach(cuid => { next.add(cuid); resetUnitDescendants(cuid) })
+          }
+          if (!id.startsWith('emp::')) resetUnitDescendants(id)
+        }
+        // For employee nodes
+        const empId = id.startsWith('emp::') ? id.slice(5) : id
+        resetEmpDescendants(empId)
       }
       return next
     })
-  }, [])
+  }, [mode])
 
   const expandAll = useCallback(() => setCollapsed(new Set()), [])
   const collapseAll = useCallback(() => setCollapsed(defaultCollapsed), [defaultCollapsed])
 
-  const { nodes, edges } = useMemo(
-    () => buildElements(employees, collapsed, onToggle),
-    [employees, collapsed, onToggle]
-  )
+  const { nodes, edges } = useMemo(() => {
+    if (mode === 'manager') return buildManagerElements(employees, collapsed, onToggle)
+    if (mode === 'orgunit') return buildOrgUnitElements(orgUnits, employees, collapsed, onToggle)
+    return buildCombinedElements(orgUnits, employees, collapsed, onToggle)
+  }, [employees, orgUnits, mode, collapsed, onToggle])
+
   nodesRef.current = nodes
 
-  if (employees.length === 0) {
+  if (employees.length === 0 && orgUnits.length === 0) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8', gap: 12 }}>
         <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-          <circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
         </svg>
-        <p style={{ fontSize: 18, fontWeight: 500, margin: 0 }}>אין עובדים להצגה</p>
-        <p style={{ fontSize: 14 }}>הוסף עובדים בדף הניהול</p>
+        <p style={{ fontSize: 18, fontWeight: 500, margin: 0 }}>אין נתונים להצגה</p>
       </div>
     )
   }
@@ -388,14 +619,9 @@ export default function OrgTreeFlow({ employees }: { employees: Employee[] }) {
   return (
     <div style={{ width: '100%', height: '100%' }}>
       <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        minZoom={0.05}
-        maxZoom={2}
-        nodesDraggable={false}
-        nodesConnectable={false}
-        elementsSelectable={false}
+        nodes={nodes} edges={edges} nodeTypes={nodeTypes}
+        minZoom={0.05} maxZoom={2}
+        nodesDraggable={false} nodesConnectable={false} elementsSelectable={false}
         onNodeClick={(_e, node) => {
           const hasChildren = (node.data as any).hasChildren
           if (hasChildren) onToggle(node.id)
@@ -406,11 +632,10 @@ export default function OrgTreeFlow({ employees }: { employees: Employee[] }) {
         <Controls showInteractive={false} position="bottom-left" />
         <MiniMap
           nodeColor={n => {
-            const emp = (n.data as any)?.employee as Employee
-            return getDivisionColor(emp?.division ?? '')
+            if (n.type === 'unit') return TYPE_COLOR[(n.data as any)?.unit?.type] ?? '#64748b'
+            return getDivisionColor((n.data as any)?.employee?.division ?? '')
           }}
-          maskColor="rgba(248,250,252,0.85)"
-          position="bottom-right"
+          maskColor="rgba(248,250,252,0.85)" position="bottom-right"
           style={{ border: '1px solid #e2e8f0', borderRadius: 8 }}
         />
       </ReactFlow>
