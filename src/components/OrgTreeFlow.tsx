@@ -160,7 +160,7 @@ function getDivisionColor(division: string) {
 // ─── Employee node card (LR: target=Left, source=Right) ──────────────────────
 
 function EmployeeNode({ data }: NodeProps) {
-  const { employee, hasChildren, isCollapsed, isRoot, onToggle } = data as {
+  const { employee, hasChildren, isCollapsed, isRoot } = data as {
     employee: Employee; hasChildren: boolean; isCollapsed: boolean; isRoot: boolean; onToggle: (id: string) => void
   }
   const initials = (`${employee.firstName.charAt(0)}${employee.lastName.charAt(0)}`) || '?'
@@ -210,23 +210,19 @@ function EmployeeNode({ data }: NodeProps) {
         </div>
       </div>
 
-      {/* Toggle button on the RIGHT (children appear to the right in LR layout) */}
+      {/* Visual indicator only - click handled by onNodeClick on ReactFlow */}
       {hasChildren && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onToggle(employee.id) }}
-          onMouseDown={(e) => e.stopPropagation()}
-          style={{
-            position: 'absolute', right: -12, top: '50%', transform: 'translateY(-50%)',
-            width: 22, height: 22, borderRadius: '50%',
-            background: divColor, border: '2px solid #fff',
-            color: '#fff', fontSize: 14, fontWeight: 700,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', zIndex: 10, lineHeight: 1, boxShadow: '0 2px 6px #0003',
-          }}
-          title={isCollapsed ? 'הרחב' : 'כווץ'}
-        >
+        <div style={{
+          position: 'absolute', right: -11, top: '50%', transform: 'translateY(-50%)',
+          width: 20, height: 20, borderRadius: '50%',
+          background: divColor, border: '2px solid #fff',
+          color: '#fff', fontSize: 13, fontWeight: 700,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 10, lineHeight: 1, boxShadow: '0 2px 6px #0003',
+          pointerEvents: 'none',
+        }}>
           {isCollapsed ? '+' : '−'}
-        </button>
+        </div>
       )}
 
       <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
@@ -291,6 +287,10 @@ export default function OrgTreeFlow({ employees }: { employees: Employee[] }) {
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={false}
+        onNodeClick={(_e, node) => {
+          const hasChildren = (node.data as any).hasChildren
+          if (hasChildren) onToggle(node.id)
+        }}
       >
         <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="#cbd5e1" />
         <Controls showInteractive={false} position="bottom-left" />
