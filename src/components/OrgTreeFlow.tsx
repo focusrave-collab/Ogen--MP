@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState, useRef } from 'react'
+import { useMemo, useCallback, useState, useRef, useEffect } from 'react'
 import {
   ReactFlow,
   Background,
@@ -267,6 +267,10 @@ const nodeTypes = { employee: EmployeeNode }
 
 function FlowPanel({ onExpandAll, onCollapseAll }: { onExpandAll: () => void; onCollapseAll: () => void }) {
   const { fitView } = useReactFlow()
+  useEffect(() => {
+    const t = setTimeout(() => fitView({ padding: 0.15 }), 100)
+    return () => clearTimeout(t)
+  }, [])
   return (
     <Panel position="top-left">
       <div style={{ display: 'flex', gap: 6, direction: 'rtl' }}>
@@ -354,8 +358,6 @@ export default function OrgTreeFlow({ employees }: { employees: Employee[] }) {
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
-        fitView
-        fitViewOptions={{ padding: 0.15 }}
         minZoom={0.05}
         maxZoom={2}
         nodesDraggable={false}
