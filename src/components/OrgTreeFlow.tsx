@@ -428,9 +428,34 @@ function buildCombinedElements(orgUnits: OrgUnit[], employees: Employee[], colla
     })
   })
 
-  // Edges: unit→unit, unit→empRoot, emp→emp
+  // Build map: unitId → manager emp id (if that emp is visible)
+  const unitManagerEmpId = new Map<string, string>()
+  orgUnits.forEach(u => {
+    if (!u.managerEmployeeNumber) return
+    const mgr = empByNumber.get(u.managerEmployeeNumber.trim())
+    if (mgr && visibleEmps.has(mgr.id)) unitManagerEmpId.set(u.id, mgr.id)
+  })
+
+  // Edges: unit→manager(or unit→children directly), manager→childUnits, emp→emp
   visibleUnits.forEach(uid => {
-    if (!collapsed.has(uid)) {
+    if (collapsed.has(uid)) return
+    const mgrId = unitManagerEmpId.get(uid)
+
+    if (mgrId) {
+      // unit → manager
+      edges.push({ id: `u${uid}→mgr${mgrId}`, source: uid, target: `emp::${mgrId}`, type: 'smoothstep', style: { stroke: '#94a3b8', strokeWidth: 1.5 } })
+      // manager → child units (so manager appears above them)
+      ;(childUnitsOf.get(uid) ?? []).forEach(childUid => {
+        if (visibleUnits.has(childUid))
+          edges.push({ id: `mgr${mgrId}→u${childUid}`, source: `emp::${mgrId}`, target: childUid, type: 'smoothstep', style: { stroke: '#94a3b8', strokeWidth: 1.5 } })
+      })
+      // manager → other root employees (excluding manager itself)
+      ;(empRootsOf.get(uid) ?? []).forEach(eid => {
+        if (eid !== mgrId && visibleEmps.has(eid))
+          edges.push({ id: `mgr${mgrId}→e${eid}`, source: `emp::${mgrId}`, target: `emp::${eid}`, type: 'smoothstep', style: { stroke: '#cbd5e1', strokeWidth: 1.5 } })
+      })
+    } else {
+      // No manager: unit → child units + root employees directly
       ;(childUnitsOf.get(uid) ?? []).forEach(childUid => {
         if (visibleUnits.has(childUid))
           edges.push({ id: `u${uid}→u${childUid}`, source: uid, target: childUid, type: 'smoothstep', style: { stroke: '#94a3b8', strokeWidth: 1.5 } })
