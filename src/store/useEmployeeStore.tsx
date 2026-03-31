@@ -77,6 +77,7 @@ export function EmployeeProvider({ children }: { children: ReactNode }) {
       }
     } catch (err: any) {
       setError(err.message ?? 'שגיאה בייבוא נתונים')
+      throw err
     } finally {
       setLoading(false)
     }

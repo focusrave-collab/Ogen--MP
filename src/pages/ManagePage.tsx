@@ -27,7 +27,7 @@ interface EditingCell {
 }
 
 export default function ManagePage() {
-  const { employees, addEmployee, updateEmployee, deleteEmployee, importEmployees } = useEmployeeStore()
+  const { employees, addEmployee, updateEmployee, deleteEmployee, importEmployees, error } = useEmployeeStore()
   const [editing, setEditing] = useState<EditingCell | null>(null)
   const [editValue, setEditValue] = useState('')
   const [search, setSearch] = useState('')
@@ -110,6 +110,11 @@ export default function ManagePage() {
 
   return (
     <div className="flex flex-col flex-1 p-4" style={{ direction: 'rtl' }}>
+      {error && (
+        <div className="mb-3 px-4 py-2 bg-red-50 border border-red-300 text-red-700 rounded-lg text-sm">
+          שגיאה: {error}
+        </div>
+      )}
       {/* Toolbar */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">
         <h1 className="text-xl font-bold text-slate-800 ml-2">ניהול ועריכה</h1>
