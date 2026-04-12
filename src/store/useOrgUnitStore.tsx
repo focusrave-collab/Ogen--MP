@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import type { OrgUnit } from '../types/orgUnit'
 import type { Employee } from '../types/employee'
-import { supabase } from '../lib/supabase'
+import { sql } from '../lib/neonClient'
 
 interface OrgUnitStore {
   orgUnits: OrgUnit[]
@@ -32,9 +32,8 @@ export function OrgUnitProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
 
   const fetchOrgUnits = async () => {
-    const { data, error: e } = await supabase.from('org_units').select('*').order('type').order('name')
-    if (e) { setError(e.message); return }
-    setOrgUnits((data ?? []).map(fromDb))
+    const rows = await sql`SELECT * FROM org_units ORDER BY type, name`
+    setOrgUnits(rows.map(fromDb))
   }
 
   useEffect(() => { fetchOrgUnits() }, [])
@@ -45,11 +44,9 @@ export function OrgUnitProvider({ children }: { children: ReactNode }) {
     try {
       const toInsert: { name: string; type: string; parent_name: string }[] = []
 
-      // חטיבות
       const divisions = new Set(employees.map(e => e.division.trim()).filter(Boolean))
       divisions.forEach(d => toInsert.push({ name: d, type: 'חטיבה', parent_name: '' }))
 
-      // מחלקות — record first division seen for each department
       const deptParent = new Map<string, string>()
       employees.forEach(e => {
         if (e.department.trim() && !deptParent.has(e.department.trim()))
@@ -57,7 +54,6 @@ export function OrgUnitProvider({ children }: { children: ReactNode }) {
       })
       deptParent.forEach((div, dept) => toInsert.push({ name: dept, type: 'מחלקה', parent_name: div }))
 
-      // תכניות — record first department seen for each program
       const progParent = new Map<string, string>()
       employees.forEach(e => {
         if (e.program.trim() && !progParent.has(e.program.trim()))
@@ -65,11 +61,11 @@ export function OrgUnitProvider({ children }: { children: ReactNode }) {
       })
       progParent.forEach((dept, prog) => toInsert.push({ name: prog, type: 'תכנית', parent_name: dept }))
 
-      if (toInsert.length > 0) {
-        const { error: upsertError } = await supabase
-          .from('org_units')
-          .upsert(toInsert, { onConflict: 'name,type', ignoreDuplicates: true })
-        if (upsertError) throw upsertError
+      for (const u of toInsert) {
+        await sql`
+          INSERT INTO org_units (name, type, parent_name)
+          VALUES (${u.name}, ${u.type}, ${u.parent_name})
+          ON CONFLICT (name, type) DO NOTHING`
       }
       await fetchOrgUnits()
     } catch (err: any) {
@@ -81,30 +77,37 @@ export function OrgUnitProvider({ children }: { children: ReactNode }) {
   }
 
   const updateManager = async (id: string, managerEmployeeNumber: string) => {
-    const { data, error: e } = await supabase
-      .from('org_units')
-      .update({ manager_employee_number: managerEmployeeNumber })
-      .eq('id', id)
-      .select()
-      .single()
-    if (e) { setError(e.message); throw e }
-    setOrgUnits(prev => prev.map(u => u.id === id ? fromDb(data) : u))
+    try {
+      const [row] = await sql`
+        UPDATE org_units SET manager_employee_number = ${managerEmployeeNumber}
+        WHERE id = ${id} RETURNING *`
+      setOrgUnits(prev => prev.map(u => u.id === id ? fromDb(row) : u))
+    } catch (err: any) {
+      setError(err.message); throw err
+    }
   }
 
   const updateOrgUnit = async (id: string, updates: Partial<Pick<OrgUnit, 'name' | 'type' | 'parentName'>>) => {
-    const dbUpdates: any = {}
-    if (updates.name !== undefined) dbUpdates.name = updates.name
-    if (updates.type !== undefined) dbUpdates.type = updates.type
-    if (updates.parentName !== undefined) dbUpdates.parent_name = updates.parentName
-    const { data, error: e } = await supabase.from('org_units').update(dbUpdates).eq('id', id).select().single()
-    if (e) { setError(e.message); throw e }
-    setOrgUnits(prev => prev.map(u => u.id === id ? fromDb(data) : u))
+    try {
+      const current = orgUnits.find(u => u.id === id)
+      if (!current) return
+      const m = { ...current, ...updates }
+      const [row] = await sql`
+        UPDATE org_units SET name = ${m.name}, type = ${m.type}, parent_name = ${m.parentName}
+        WHERE id = ${id} RETURNING *`
+      setOrgUnits(prev => prev.map(u => u.id === id ? fromDb(row) : u))
+    } catch (err: any) {
+      setError(err.message); throw err
+    }
   }
 
   const deleteOrgUnit = async (id: string) => {
-    const { error: e } = await supabase.from('org_units').delete().eq('id', id)
-    if (e) { setError(e.message); throw e }
-    setOrgUnits(prev => prev.filter(u => u.id !== id))
+    try {
+      await sql`DELETE FROM org_units WHERE id = ${id}`
+      setOrgUnits(prev => prev.filter(u => u.id !== id))
+    } catch (err: any) {
+      setError(err.message); throw err
+    }
   }
 
   return (
