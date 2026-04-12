@@ -345,25 +345,46 @@ function buildCombinedElements(orgUnits: OrgUnit[], employees: Employee[], colla
     return null
   }
 
-  // Root employees per unit: those whose manager is outside their unit (or has no unit-manager)
-  const empRootsOf = new Map<string, string[]>() // unitId → employee ids that are roots
+  // Set of all employee IDs who are designated managers of any org unit
+  // These employees appear ONLY through their unit node, never as direct reports
+  const unitManagerEmpIds = new Set<string>()
+  const empIdToManagedUnitId = new Map<string, string>()
+  orgUnits.forEach(u => {
+    if (!u.managerEmployeeNumber) return
+    const mgr = empByNumber.get(u.managerEmployeeNumber.trim())
+    if (mgr) { unitManagerEmpIds.add(mgr.id); empIdToManagedUnitId.set(mgr.id, u.id) }
+  })
+
+  // Root employees per unit: those whose direct manager is outside their unit
+  // Exclude unit managers — they appear through their own unit node
+  const empRootsOf = new Map<string, string[]>()
   employees.forEach(emp => {
+    if (unitManagerEmpIds.has(emp.id)) return // skip: will appear as unit head
     const uid = homeUnitId(emp)
     if (!uid) return
     const mgr = findManager(emp.directManager)
     const mgrUnit = mgr ? homeUnitId(mgr) : null
-    // Root in unit if: no manager, or manager is self, or manager is in a different/parent unit
     const isRootInUnit = !mgr || mgr.id === emp.id || mgrUnit !== uid
     if (isRootInUnit) {
       const arr = empRootsOf.get(uid) ?? []; arr.push(emp.id); empRootsOf.set(uid, arr)
     }
   })
 
-  // Children of unit = sub-units + root employees (only when unit not collapsed)
-  function unitChildren(uid: string): string[] {
-    return [...(childUnitsOf.get(uid) ?? []), ...(empRootsOf.get(uid) ?? []).map(id => `emp::${id}`)]
+  function hasUnitChildren(uid: string): boolean {
+    return (childUnitsOf.get(uid) ?? []).length > 0 ||
+      (empRootsOf.get(uid) ?? []).length > 0 ||
+      !!orgUnits.find(u => u.id === uid && u.managerEmployeeNumber &&
+        empByNumber.get(u.managerEmployeeNumber.trim()))
   }
-  function hasUnitChildren(uid: string) { return unitChildren(uid).length > 0 }
+
+  function isDescendantUnit(candidate: string | null, ancestor: string): boolean {
+    if (!candidate) return false
+    const u = orgUnits.find(u => u.id === candidate)
+    if (!u || !u.parentName) return false
+    const parent = orgUnits.find(p => p.name === u.parentName)
+    if (!parent) return false
+    return parent.id === ancestor || isDescendantUnit(parent.id, ancestor)
+  }
 
   // Visibility traversal
   const visibleUnits = new Set<string>()
@@ -373,26 +394,27 @@ function buildCombinedElements(orgUnits: OrgUnit[], employees: Employee[], colla
     visibleUnits.add(uid)
     if (collapsed.has(uid)) return
     ;(childUnitsOf.get(uid) ?? []).forEach(visitUnit)
+    // Visit manager of this unit
+    const u = orgUnits.find(o => o.id === uid)
+    if (u?.managerEmployeeNumber) {
+      const mgr = empByNumber.get(u.managerEmployeeNumber.trim())
+      if (mgr) visitEmp(mgr.id, uid)
+    }
+    // Visit root employees (non-unit-managers)
     ;(empRootsOf.get(uid) ?? []).forEach(eid => visitEmp(eid, uid))
   }
+
   function visitEmp(eid: string, unitId: string) {
     visibleEmps.add(eid)
     if (collapsed.has(`emp::${eid}`)) return
     ;(empChildrenOf.get(eid) ?? []).forEach(childId => {
-      // Only show if child is in same or sub-unit
+      // Skip children who manage any org unit — they appear through their unit
+      if (unitManagerEmpIds.has(childId)) return
       const childUnitId = homeUnitId(employees.find(e => e.id === childId)!)
       if (childUnitId === unitId || isDescendantUnit(childUnitId, unitId)) {
         visitEmp(childId, unitId)
       }
     })
-  }
-  function isDescendantUnit(candidate: string | null, ancestor: string): boolean {
-    if (!candidate) return false
-    const u = orgUnits.find(u => u.id === candidate)
-    if (!u || !u.parentName) return false
-    const parent = orgUnits.find(p => p.name === u.parentName)
-    if (!parent) return false
-    return parent.id === ancestor || isDescendantUnit(parent.id, ancestor)
   }
 
   unitRoots.forEach(visitUnit)
@@ -415,45 +437,44 @@ function buildCombinedElements(orgUnits: OrgUnit[], employees: Employee[], colla
   visibleEmps.forEach(eid => {
     const e = empById.get(eid)!
     const nodeId = `emp::${eid}`
-    const actualHasChildren = (empChildrenOf.get(eid) ?? []).length > 0
+    // Has children = direct reports who are NOT unit managers
+    const actualHasChildren = (empChildrenOf.get(eid) ?? []).some(cid => !unitManagerEmpIds.has(cid))
     sizes.set(nodeId, { w: EMP_W, h: EMP_H })
     nodes.push({
       id: nodeId, type: 'employee', position: { x: 0, y: 0 },
       sourcePosition: Position.Bottom, targetPosition: Position.Top,
-      data: {
-        employee: e, hasChildren: actualHasChildren,
-        isCollapsed: collapsed.has(nodeId), isRoot: false,
-        onToggle: (id: string) => onToggle(id),
-      },
+      data: { employee: e, hasChildren: actualHasChildren, isCollapsed: collapsed.has(nodeId), isRoot: false, onToggle: (id: string) => onToggle(id) },
     })
   })
 
-  // Build map: unitId → manager emp id (if that emp is visible)
-  const unitManagerEmpId = new Map<string, string>()
+  // Build unit→manager map for edge routing
+  const unitMgrEmpId = new Map<string, string>()
   orgUnits.forEach(u => {
     if (!u.managerEmployeeNumber) return
     const mgr = empByNumber.get(u.managerEmployeeNumber.trim())
-    if (mgr && visibleEmps.has(mgr.id)) unitManagerEmpId.set(u.id, mgr.id)
+    if (mgr && visibleEmps.has(mgr.id)) unitMgrEmpId.set(u.id, mgr.id)
   })
 
-  // Edges: unit→manager(or unit→children directly), manager→childUnits, emp→emp
+  // Edges
   visibleUnits.forEach(uid => {
     if (collapsed.has(uid)) return
-    const mgrId = unitManagerEmpId.get(uid)
+    const mgrId = unitMgrEmpId.get(uid)
 
     if (mgrId) {
       // unit → manager
       edges.push({ id: `u${uid}→mgr${mgrId}`, source: uid, target: `emp::${mgrId}`, type: 'smoothstep', style: { stroke: '#94a3b8', strokeWidth: 1.5 } })
-      // manager → child units (so manager appears above them)
-      ;(childUnitsOf.get(uid) ?? []).forEach(childUid => {
-        if (visibleUnits.has(childUid))
-          edges.push({ id: `mgr${mgrId}→u${childUid}`, source: `emp::${mgrId}`, target: childUid, type: 'smoothstep', style: { stroke: '#94a3b8', strokeWidth: 1.5 } })
-      })
-      // manager → other root employees (excluding manager itself)
-      ;(empRootsOf.get(uid) ?? []).forEach(eid => {
-        if (eid !== mgrId && visibleEmps.has(eid))
-          edges.push({ id: `mgr${mgrId}→e${eid}`, source: `emp::${mgrId}`, target: `emp::${eid}`, type: 'smoothstep', style: { stroke: '#cbd5e1', strokeWidth: 1.5 } })
-      })
+      if (!collapsed.has(`emp::${mgrId}`)) {
+        // manager → child units
+        ;(childUnitsOf.get(uid) ?? []).forEach(childUid => {
+          if (visibleUnits.has(childUid))
+            edges.push({ id: `mgr${mgrId}→u${childUid}`, source: `emp::${mgrId}`, target: childUid, type: 'smoothstep', style: { stroke: '#94a3b8', strokeWidth: 1.5 } })
+        })
+        // manager → root employees (not unit managers)
+        ;(empRootsOf.get(uid) ?? []).forEach(eid => {
+          if (visibleEmps.has(eid))
+            edges.push({ id: `mgr${mgrId}→e${eid}`, source: `emp::${mgrId}`, target: `emp::${eid}`, type: 'smoothstep', style: { stroke: '#cbd5e1', strokeWidth: 1.5 } })
+        })
+      }
     } else {
       // No manager: unit → child units + root employees directly
       ;(childUnitsOf.get(uid) ?? []).forEach(childUid => {
@@ -466,10 +487,12 @@ function buildCombinedElements(orgUnits: OrgUnit[], employees: Employee[], colla
       })
     }
   })
+
+  // Employee → direct reports (skip unit managers — they connect through their unit)
   visibleEmps.forEach(eid => {
     if (!collapsed.has(`emp::${eid}`)) {
       ;(empChildrenOf.get(eid) ?? []).forEach(cid => {
-        if (visibleEmps.has(cid))
+        if (visibleEmps.has(cid) && !unitManagerEmpIds.has(cid))
           edges.push({ id: `e${eid}→e${cid}`, source: `emp::${eid}`, target: `emp::${cid}`, type: 'smoothstep', style: { stroke: '#cbd5e1', strokeWidth: 1.5 } })
       })
     }
