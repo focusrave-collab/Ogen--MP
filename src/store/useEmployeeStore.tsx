@@ -84,7 +84,8 @@ export function EmployeeProvider({ children }: { children: ReactNode }) {
     setLoading(true)
     setError(null)
     try {
-      await sql`DELETE FROM employees`
+      await sql`TRUNCATE TABLE employees`
+      setEmployees([])
       if (newEmployees.length > 0) {
         for (const emp of newEmployees) {
           await sql`
@@ -93,8 +94,8 @@ export function EmployeeProvider({ children }: { children: ReactNode }) {
             VALUES
               (${emp.gender}, ${emp.employeeNumber}, ${emp.firstName}, ${emp.lastName}, ${emp.role}, ${emp.program}, ${emp.department}, ${emp.division}, ${emp.directManager}, ${emp.admissionYear}, ${emp.admissionDate}, ${emp.organization}, ${emp.notes})`
         }
+        await fetchEmployees()
       }
-      await fetchEmployees()
     } catch (err: any) {
       setError(err.message ?? 'שגיאה בייבוא נתונים')
       throw err
