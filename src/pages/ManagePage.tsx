@@ -38,6 +38,7 @@ export default function ManagePage() {
   const [editingUnit, setEditingUnit] = useState<{ id: string; field: string } | null>(null)
   const [editUnitValue, setEditUnitValue] = useState('')
   const [confirmDeleteUnitId, setConfirmDeleteUnitId] = useState<string | null>(null)
+  const [confirmSync, setConfirmSync] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const filtered = employees.filter(e =>
@@ -274,7 +275,7 @@ export default function ManagePage() {
         <div className="flex items-center gap-3 mb-3">
           <h2 className="text-lg font-bold text-slate-800">יחידות ארגוניות</h2>
           <button
-            onClick={() => syncFromEmployees(employees).catch(e => alert('שגיאה: ' + e.message))}
+            onClick={() => setConfirmSync(true)}
             disabled={orgLoading || employees.length === 0}
             className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
           >
@@ -445,6 +446,25 @@ export default function ManagePage() {
             <div className="flex gap-3 justify-center">
               <button onClick={() => setConfirmDeleteUnitId(null)} className="px-5 py-2 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 text-sm font-medium transition-colors">ביטול</button>
               <button onClick={() => { deleteOrgUnit(confirmDeleteUnitId); setConfirmDeleteUnitId(null) }} className="px-5 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors">מחק</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* אישור סנכרון יחידות ארגוניות */}
+      {confirmSync && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full mx-4 text-center">
+            <div className="text-amber-500 mb-3">
+              <svg className="mx-auto" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="0.5" fill="currentColor"/>
+              </svg>
+            </div>
+            <h2 className="text-lg font-bold text-slate-800 mb-1">סנכרון יחידות ארגוניות</h2>
+            <p className="text-slate-500 text-sm mb-5">פעולה זו תמחק את כל היחידות הקיימות (כולל המנהלים שהוגדרו) ותבנה מחדש לפי נתוני העובדים.</p>
+            <div className="flex gap-3 justify-center">
+              <button onClick={() => setConfirmSync(false)} className="px-5 py-2 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 text-sm font-medium transition-colors">ביטול</button>
+              <button onClick={() => { setConfirmSync(false); syncFromEmployees(employees).catch(e => alert('שגיאה: ' + e.message)) }} className="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors">סנכרן</button>
             </div>
           </div>
         </div>

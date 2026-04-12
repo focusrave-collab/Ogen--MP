@@ -61,11 +61,11 @@ export function OrgUnitProvider({ children }: { children: ReactNode }) {
       })
       progParent.forEach((dept, prog) => toInsert.push({ name: prog, type: 'תכנית', parent_name: dept }))
 
+      await sql`TRUNCATE TABLE org_units`
       for (const u of toInsert) {
         await sql`
           INSERT INTO org_units (name, type, parent_name)
-          VALUES (${u.name}, ${u.type}, ${u.parent_name})
-          ON CONFLICT (name, type) DO NOTHING`
+          VALUES (${u.name}, ${u.type}, ${u.parent_name})`
       }
       await fetchOrgUnits()
     } catch (err: any) {
