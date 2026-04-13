@@ -313,8 +313,8 @@ export default function ManagePage() {
                 </tr>
               ) : (
                 sortedUnits.map((unit) => {
-                  const TYPE_BG: Record<string, string> = { 'ארגון': 'bg-amber-50', 'חטיבה': 'bg-blue-50', 'מחלקה': 'bg-white', 'תכנית': 'bg-slate-50' }
-                  const TYPE_BADGE: Record<string, string> = { 'ארגון': 'bg-amber-100 text-amber-800', 'חטיבה': 'bg-blue-100 text-blue-700', 'מחלקה': 'bg-purple-100 text-purple-700', 'תכנית': 'bg-emerald-100 text-emerald-700' }
+                  const TYPE_BG: Record<string, string> = { 'ארגון': 'bg-fuchsia-50', 'חטיבה': 'bg-blue-50', 'מחלקה': 'bg-white', 'תכנית': 'bg-slate-50' }
+                  const TYPE_BADGE: Record<string, string> = { 'ארגון': 'bg-fuchsia-100 text-fuchsia-800', 'חטיבה': 'bg-blue-100 text-blue-700', 'מחלקה': 'bg-purple-100 text-purple-700', 'תכנית': 'bg-emerald-100 text-emerald-700' }
                   const TYPE_OPTIONS = ['ארגון', 'חטיבה', 'מחלקה', 'תכנית']
 
                   function unitCellEdit(field: string, value: string) {
