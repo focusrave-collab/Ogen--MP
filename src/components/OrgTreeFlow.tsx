@@ -104,8 +104,8 @@ function getDivisionColor(division: string) {
   return DIVISION_COLORS[division]
 }
 
-const TYPE_COLOR: Record<string, string> = { 'חטיבה': '#1e40af', 'מחלקה': '#6d28d9', 'תכנית': '#065f46' }
-const TYPE_BG: Record<string, string> = { 'חטיבה': '#dbeafe', 'מחלקה': '#ede9fe', 'תכנית': '#d1fae5' }
+const TYPE_COLOR: Record<string, string> = { 'ארגון': '#7c2d12', 'חטיבה': '#1e40af', 'מחלקה': '#6d28d9', 'תכנית': '#065f46' }
+const TYPE_BG: Record<string, string> = { 'ארגון': '#fef3c7', 'חטיבה': '#dbeafe', 'מחלקה': '#ede9fe', 'תכנית': '#d1fae5' }
 
 // ─── Employee node ────────────────────────────────────────────────────────────
 

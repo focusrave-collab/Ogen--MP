@@ -119,7 +119,7 @@ export default function ManagePage() {
   }
 
   // Sort org units: חטיבות → מחלקות → תכניות, then by name
-  const TYPE_ORDER = { 'חטיבה': 0, 'מחלקה': 1, 'תכנית': 2 }
+  const TYPE_ORDER: Record<string, number> = { 'ארגון': 0, 'חטיבה': 1, 'מחלקה': 2, 'תכנית': 3 }
   const sortedUnits = [...orgUnits].sort((a, b) =>
     TYPE_ORDER[a.type] - TYPE_ORDER[b.type] || a.name.localeCompare(b.name, 'he')
   )
@@ -313,9 +313,9 @@ export default function ManagePage() {
                 </tr>
               ) : (
                 sortedUnits.map((unit) => {
-                  const TYPE_BG: Record<string, string> = { 'חטיבה': 'bg-blue-50', 'מחלקה': 'bg-white', 'תכנית': 'bg-slate-50' }
-                  const TYPE_BADGE: Record<string, string> = { 'חטיבה': 'bg-blue-100 text-blue-700', 'מחלקה': 'bg-purple-100 text-purple-700', 'תכנית': 'bg-emerald-100 text-emerald-700' }
-                  const TYPE_OPTIONS = ['חטיבה', 'מחלקה', 'תכנית']
+                  const TYPE_BG: Record<string, string> = { 'ארגון': 'bg-amber-50', 'חטיבה': 'bg-blue-50', 'מחלקה': 'bg-white', 'תכנית': 'bg-slate-50' }
+                  const TYPE_BADGE: Record<string, string> = { 'ארגון': 'bg-amber-100 text-amber-800', 'חטיבה': 'bg-blue-100 text-blue-700', 'מחלקה': 'bg-purple-100 text-purple-700', 'תכנית': 'bg-emerald-100 text-emerald-700' }
+                  const TYPE_OPTIONS = ['ארגון', 'חטיבה', 'מחלקה', 'תכנית']
 
                   function unitCellEdit(field: string, value: string) {
                     setEditingUnit({ id: unit.id, field })
@@ -415,6 +415,7 @@ export default function ManagePage() {
                 <label className="block text-sm font-medium text-slate-600 mb-1">סוג</label>
                 <select value={newUnit.type} onChange={e => setNewUnit(u => ({ ...u, type: e.target.value as OrgUnit['type'] }))}
                   className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white">
+                  <option value="ארגון">ארגון</option>
                   <option value="חטיבה">חטיבה</option>
                   <option value="מחלקה">מחלקה</option>
                   <option value="תכנית">תכנית</option>
