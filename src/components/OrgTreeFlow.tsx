@@ -393,15 +393,21 @@ function buildCombinedElements(orgUnits: OrgUnit[], employees: Employee[], colla
   function visitUnit(uid: string) {
     visibleUnits.add(uid)
     if (collapsed.has(uid)) return
-    ;(childUnitsOf.get(uid) ?? []).forEach(visitUnit)
-    // Visit manager of this unit
     const u = orgUnits.find(o => o.id === uid)
-    if (u?.managerEmployeeNumber) {
-      const mgr = empByNumber.get(u.managerEmployeeNumber.trim())
-      if (mgr) visitEmp(mgr.id, uid)
+    const mgr = u?.managerEmployeeNumber ? empByNumber.get(u.managerEmployeeNumber.trim()) : null
+    if (mgr) {
+      // Always show the manager below the unit
+      visibleEmps.add(mgr.id)
+      // Only reveal sub-content (child units + emp roots) once the manager is also expanded
+      if (!collapsed.has(`emp::${mgr.id}`)) {
+        visitEmp(mgr.id, uid) // also visits manager's direct reports in this unit
+        ;(childUnitsOf.get(uid) ?? []).forEach(visitUnit)
+        ;(empRootsOf.get(uid) ?? []).forEach(eid => visitEmp(eid, uid))
+      }
+    } else {
+      ;(childUnitsOf.get(uid) ?? []).forEach(visitUnit)
+      ;(empRootsOf.get(uid) ?? []).forEach(eid => visitEmp(eid, uid))
     }
-    // Visit root employees (non-unit-managers)
-    ;(empRootsOf.get(uid) ?? []).forEach(eid => visitEmp(eid, uid))
   }
 
   function visitEmp(eid: string, unitId: string) {
@@ -437,8 +443,14 @@ function buildCombinedElements(orgUnits: OrgUnit[], employees: Employee[], colla
   visibleEmps.forEach(eid => {
     const e = empById.get(eid)!
     const nodeId = `emp::${eid}`
-    // Has children = direct reports who are NOT unit managers
-    const actualHasChildren = (empChildrenOf.get(eid) ?? []).some(cid => !unitManagerEmpIds.has(cid))
+    // For unit managers: children = managed unit's sub-units + emp roots + own non-manager direct reports
+    // For regular emps: children = direct reports who are not unit managers
+    const managedUid = empIdToManagedUnitId.get(eid)
+    const actualHasChildren = managedUid
+      ? (childUnitsOf.get(managedUid) ?? []).length > 0 ||
+        (empRootsOf.get(managedUid) ?? []).length > 0 ||
+        (empChildrenOf.get(eid) ?? []).some(cid => !unitManagerEmpIds.has(cid))
+      : (empChildrenOf.get(eid) ?? []).some(cid => !unitManagerEmpIds.has(cid))
     sizes.set(nodeId, { w: EMP_W, h: EMP_H })
     nodes.push({
       id: nodeId, type: 'employee', position: { x: 0, y: 0 },
