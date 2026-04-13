@@ -3,6 +3,7 @@ import { useEmployeeStore } from '../store/useEmployeeStore'
 import { useOrgUnitStore } from '../store/useOrgUnitStore'
 import type { Employee } from '../types/employee'
 import { EMPTY_EMPLOYEE } from '../types/employee'
+import type { OrgUnit } from '../types/orgUnit'
 
 const COLUMNS: { key: keyof Omit<Employee, 'id'>; label: string; width?: number }[] = [
   { key: 'gender', label: 'ז/נ', width: 70 },
@@ -29,7 +30,7 @@ interface EditingCell {
 
 export default function ManagePage() {
   const { employees, addEmployee, updateEmployee, deleteEmployee, importEmployees, error } = useEmployeeStore()
-  const { orgUnits, loading: orgLoading, error: orgError, syncFromEmployees, updateManager, updateOrgUnit, deleteOrgUnit } = useOrgUnitStore()
+  const { orgUnits, loading: orgLoading, error: orgError, syncFromEmployees, addOrgUnit, updateManager, updateOrgUnit, deleteOrgUnit } = useOrgUnitStore()
   const [editing, setEditing] = useState<EditingCell | null>(null)
   const [editValue, setEditValue] = useState('')
   const [search, setSearch] = useState('')
@@ -39,6 +40,9 @@ export default function ManagePage() {
   const [editUnitValue, setEditUnitValue] = useState('')
   const [confirmDeleteUnitId, setConfirmDeleteUnitId] = useState<string | null>(null)
   const [confirmSync, setConfirmSync] = useState(false)
+  const [showAddUnit, setShowAddUnit] = useState(false)
+  const [newUnit, setNewUnit] = useState({ type: 'חטיבה' as OrgUnit['type'], name: '', parentName: '', managerEmployeeNumber: '' })
+  const [addUnitError, setAddUnitError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const filtered = employees.filter(e =>
@@ -281,6 +285,12 @@ export default function ManagePage() {
           >
             {orgLoading ? 'מסנכרן...' : 'סנכרן מעובדים'}
           </button>
+          <button
+            onClick={() => { setNewUnit({ type: 'חטיבה', name: '', parentName: '', managerEmployeeNumber: '' }); setAddUnitError(''); setShowAddUnit(true) }}
+            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
+          >
+            + הוסף יחידה
+          </button>
           {orgError && <span className="text-red-500 text-sm">{orgError}</span>}
         </div>
         <div className="overflow-auto rounded-xl border border-slate-200 shadow-sm bg-white" style={{ maxHeight: '40vh' }}>
@@ -393,6 +403,80 @@ export default function ManagePage() {
           סה"כ: {orgUnits.length} יחידות ארגוניות
         </div>
       </div>
+
+      {/* מודל הוספת יחידה ארגונית */}
+      {showAddUnit && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4" style={{ direction: 'rtl' }}>
+            <h2 className="text-lg font-bold text-slate-800 mb-4">הוספת יחידה ארגונית</h2>
+            <div className="flex flex-col gap-3">
+              {/* סוג */}
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">סוג</label>
+                <select value={newUnit.type} onChange={e => setNewUnit(u => ({ ...u, type: e.target.value as OrgUnit['type'] }))}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white">
+                  <option value="חטיבה">חטיבה</option>
+                  <option value="מחלקה">מחלקה</option>
+                  <option value="תכנית">תכנית</option>
+                </select>
+              </div>
+              {/* שם */}
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">שם היחידה</label>
+                <input value={newUnit.name} onChange={e => setNewUnit(u => ({ ...u, name: e.target.value }))}
+                  placeholder="לדוגמה: עוגן"
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+              </div>
+              {/* שייך ל */}
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">שייך ל (יחידת אב)</label>
+                <select value={newUnit.parentName} onChange={e => setNewUnit(u => ({ ...u, parentName: e.target.value }))}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white">
+                  <option value="">— ללא (שורש העץ) —</option>
+                  {[...orgUnits].sort((a, b) => a.name.localeCompare(b.name, 'he')).map(u => (
+                    <option key={u.id} value={u.name}>{u.name} ({u.type})</option>
+                  ))}
+                </select>
+              </div>
+              {/* מנהל */}
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">מנהל</label>
+                <select value={newUnit.managerEmployeeNumber} onChange={e => setNewUnit(u => ({ ...u, managerEmployeeNumber: e.target.value }))}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white">
+                  <option value="">— ללא מנהל —</option>
+                  {[...employees].filter(e => e.firstName || e.lastName)
+                    .sort((a, b) => `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`, 'he'))
+                    .map(e => (
+                      <option key={e.id} value={e.employeeNumber}>
+                        {e.firstName} {e.lastName}{e.employeeNumber ? ` (${e.employeeNumber})` : ''}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              {addUnitError && <p className="text-red-500 text-sm">{addUnitError}</p>}
+            </div>
+            <div className="flex gap-3 justify-end mt-5">
+              <button onClick={() => setShowAddUnit(false)}
+                className="px-5 py-2 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 text-sm font-medium transition-colors">
+                ביטול
+              </button>
+              <button
+                onClick={async () => {
+                  if (!newUnit.name.trim()) { setAddUnitError('יש להזין שם ליחידה'); return }
+                  try {
+                    await addOrgUnit(newUnit)
+                    setShowAddUnit(false)
+                  } catch (e: any) {
+                    setAddUnitError(e.message ?? 'שגיאה בהוספה')
+                  }
+                }}
+                className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition-colors">
+                הוסף
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* אישור מחיקת שורה */}
       {confirmDeleteId && (

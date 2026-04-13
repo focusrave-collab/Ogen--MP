@@ -9,6 +9,7 @@ interface OrgUnitStore {
   loading: boolean
   error: string | null
   syncFromEmployees: (employees: Employee[]) => Promise<void>
+  addOrgUnit: (unit: Pick<OrgUnit, 'name' | 'type' | 'parentName' | 'managerEmployeeNumber'>) => Promise<void>
   updateManager: (id: string, managerEmployeeNumber: string) => Promise<void>
   updateOrgUnit: (id: string, updates: Partial<Pick<OrgUnit, 'name' | 'type' | 'parentName'>>) => Promise<void>
   deleteOrgUnit: (id: string) => Promise<void>
@@ -76,6 +77,18 @@ export function OrgUnitProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const addOrgUnit = async (unit: Pick<OrgUnit, 'name' | 'type' | 'parentName' | 'managerEmployeeNumber'>) => {
+    try {
+      const [row] = await sql`
+        INSERT INTO org_units (name, type, parent_name, manager_employee_number)
+        VALUES (${unit.name}, ${unit.type}, ${unit.parentName}, ${unit.managerEmployeeNumber})
+        RETURNING *`
+      setOrgUnits(prev => [...prev, fromDb(row)])
+    } catch (err: any) {
+      setError(err.message); throw err
+    }
+  }
+
   const updateManager = async (id: string, managerEmployeeNumber: string) => {
     try {
       const [row] = await sql`
@@ -111,7 +124,7 @@ export function OrgUnitProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <OrgUnitContext.Provider value={{ orgUnits, loading, error, syncFromEmployees, updateManager, updateOrgUnit, deleteOrgUnit }}>
+    <OrgUnitContext.Provider value={{ orgUnits, loading, error, syncFromEmployees, addOrgUnit, updateManager, updateOrgUnit, deleteOrgUnit }}>
       {children}
     </OrgUnitContext.Provider>
   )
