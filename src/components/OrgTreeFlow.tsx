@@ -3,7 +3,6 @@ import {
   ReactFlow,
   Background,
   Controls,
-  MiniMap,
   Panel,
   Handle,
   Position,
@@ -690,14 +689,6 @@ export default function OrgTreeFlow({ employees, orgUnits = [], mode = 'manager'
         <FlowPanel onExpandAll={expandAll} onCollapseAll={collapseAll} nodes={nodes} anchorRef={anchorRef} />
         <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="#cbd5e1" />
         <Controls showInteractive={false} position="bottom-left" />
-        <MiniMap
-          nodeColor={n => {
-            if (n.type === 'unit') return TYPE_COLOR[(n.data as any)?.unit?.type] ?? '#64748b'
-            return getDivisionColor((n.data as any)?.employee?.division ?? '')
-          }}
-          maskColor="rgba(248,250,252,0.85)" position="bottom-right"
-          style={{ border: '1px solid #e2e8f0', borderRadius: 8 }}
-        />
       </ReactFlow>
     </div>
   )
