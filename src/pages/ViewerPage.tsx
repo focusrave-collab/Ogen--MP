@@ -123,7 +123,7 @@ export default function ViewerPage() {
   ]
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, direction: 'rtl', height: '100vh', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, direction: 'rtl', minHeight: 0, overflow: 'hidden' }}>
       {/* Toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: '#fff', borderBottom: '1px solid #e2e8f0', flexShrink: 0, boxShadow: '0 1px 4px #0001' }}>
         <span style={{ fontWeight: 700, fontSize: 18, color: '#1e293b', marginLeft: 16 }}>עוגן — עץ ארגוני</span>
