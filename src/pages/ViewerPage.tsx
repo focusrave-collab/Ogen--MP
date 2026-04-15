@@ -140,10 +140,9 @@ export default function ViewerPage() {
       </div>
 
       {/* Tree + Side panel */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'row', minHeight: 0, overflow: 'hidden', position: 'relative' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'row', minHeight: 0, overflow: 'hidden' }}>
         <SidePanel selected={selected} />
-        {/* Absolute fill so ReactFlow always gets definite dimensions */}
-        <div style={{ position: 'absolute', top: 0, bottom: 0, right: 0, left: 280, direction: 'ltr' }}>
+        <div style={{ flex: 1, direction: 'ltr', minWidth: 0, minHeight: 0 }}>
           <OrgTreeFlow
             employees={ALL_EMPLOYEES}
             orgUnits={ALL_ORG_UNITS}

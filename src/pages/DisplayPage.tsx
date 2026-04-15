@@ -189,9 +189,9 @@ export default function DisplayPage() {
       </div>
 
       {/* Tree + Side panel */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'row', minHeight: 0, overflow: 'hidden', position: 'relative' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'row', minHeight: 0, overflow: 'hidden' }}>
         <SidePanel selected={selected} />
-        <div style={{ position: 'absolute', top: 0, bottom: 0, right: 0, left: 280, direction: 'ltr' }}>
+        <div style={{ flex: 1, direction: 'ltr', minWidth: 0, minHeight: 0 }}>
           <OrgTreeFlow
             employees={filtered}
             orgUnits={orgUnits}
