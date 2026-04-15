@@ -559,20 +559,7 @@ function FlowPanel({ onExpandAll, onCollapseAll, nodes, anchorRef }: {
   nodes: Node[]; anchorRef: React.MutableRefObject<{ id: string; x: number; y: number } | null>
 }) {
   const { fitView, getViewport, setViewport } = useReactFlow()
-
-  // Fit on mount
   useEffect(() => { const t = setTimeout(() => fitView({ padding: 0.15 }), 100); return () => clearTimeout(t) }, [])
-
-  // Also fit when nodes first appear (covers slow-loading or pre-loaded data)
-  const prevHadNodes = useRef(false)
-  useEffect(() => {
-    const hasNodes = nodes.length > 0
-    if (hasNodes && !prevHadNodes.current) {
-      const t = setTimeout(() => fitView({ padding: 0.15 }), 100)
-      prevHadNodes.current = true
-      return () => clearTimeout(t)
-    }
-  }, [nodes.length])
   useEffect(() => {
     if (!anchorRef.current) return
     const { id, x: oldX, y: oldY } = anchorRef.current; anchorRef.current = null
@@ -701,7 +688,6 @@ export default function OrgTreeFlow({ employees, orgUnits = [], mode = 'manager'
         nodes={nodes} edges={edges} nodeTypes={nodeTypes}
         minZoom={0.05} maxZoom={2}
         nodesDraggable={false} nodesConnectable={false} elementsSelectable={false}
-        onInit={(instance) => setTimeout(() => instance.fitView({ padding: 0.15 }), 50)}
         onNodeClick={(_e, node) => {
           const d = node.data as any
           if (d.hasChildren) onToggle(node.id)
