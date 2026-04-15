@@ -177,6 +177,28 @@ export default function ManagePage() {
         >
           מחק הכל
         </button>
+        <button
+          onClick={async () => {
+            try {
+              const res = await fetch('./viewer.html')
+              if (!res.ok) throw new Error('viewer.html לא נמצא')
+              let html = await res.text()
+              const dataScript = `<script>window.__ORG_DATA__ = ${JSON.stringify({ employees, orgUnits })};<\/script>`
+              html = html.replace('</head>', `${dataScript}\n</head>`)
+              const blob = new Blob([html], { type: 'text/html' })
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement('a')
+              a.href = url; a.download = 'ogen-org-tree.html'; a.click()
+              URL.revokeObjectURL(url)
+            } catch (e: any) {
+              alert('שגיאה בייצוא: ' + e.message)
+            }
+          }}
+          disabled={employees.length === 0}
+          className="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
+        >
+          ↓ ייצוא לקובץ
+        </button>
       </div>
 
       {/* Employees Table */}
