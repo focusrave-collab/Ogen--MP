@@ -585,12 +585,19 @@ function FlowPanel({ onExpandAll, onCollapseAll, nodes, anchorRef }: {
   )
 }
 
+// ─── Selected node type (exported for parent components) ─────────────────────
+
+export type SelectedNode =
+  | { kind: 'employee'; employee: Employee }
+  | { kind: 'unit'; unit: OrgUnit; managerName: string }
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function OrgTreeFlow({ employees, orgUnits = [], mode = 'manager' }: {
+export default function OrgTreeFlow({ employees, orgUnits = [], mode = 'manager', onSelect }: {
   employees: Employee[]
   orgUnits?: OrgUnit[]
   mode?: TreeMode
+  onSelect?: (node: SelectedNode) => void
 }) {
   const employeesRef = useRef(employees)
   employeesRef.current = employees
@@ -682,8 +689,12 @@ export default function OrgTreeFlow({ employees, orgUnits = [], mode = 'manager'
         minZoom={0.05} maxZoom={2}
         nodesDraggable={false} nodesConnectable={false} elementsSelectable={false}
         onNodeClick={(_e, node) => {
-          const hasChildren = (node.data as any).hasChildren
-          if (hasChildren) onToggle(node.id)
+          const d = node.data as any
+          if (d.hasChildren) onToggle(node.id)
+          if (onSelect) {
+            if (d.employee) onSelect({ kind: 'employee', employee: d.employee })
+            else if (d.unit) onSelect({ kind: 'unit', unit: d.unit, managerName: d.managerName ?? '' })
+          }
         }}
       >
         <FlowPanel onExpandAll={expandAll} onCollapseAll={collapseAll} nodes={nodes} anchorRef={anchorRef} />
