@@ -127,12 +127,15 @@ function EmployeeNode({ data }: NodeProps) {
       <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
       <div style={{ padding: '8px 12px 10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
-          <div style={{
-            width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
-            background: employee.gender === 'נקבה' ? '#ec4899' : divColor,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#fff', fontWeight: 700, fontSize: 12,
-          }}>{initials}</div>
+          {employee.photo
+            ? <img src={employee.photo} alt="" style={{ width: 34, height: 34, borderRadius: '50%', flexShrink: 0, objectFit: 'cover', border: `2px solid ${divColor}` }} />
+            : <div style={{
+                width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
+                background: employee.gender === 'נקבה' ? '#ec4899' : divColor,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#fff', fontWeight: 700, fontSize: 12,
+              }}>{initials}</div>
+          }
           <div style={{ overflow: 'hidden', flex: 1 }}>
             <div style={{ fontWeight: 600, fontSize: 13, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {employee.firstName} {employee.lastName}
