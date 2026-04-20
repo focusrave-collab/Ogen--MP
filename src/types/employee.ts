@@ -13,6 +13,8 @@ export interface Employee {
   admissionDate: string; // ת. קליטה
   organization: string; // ארגון
   notes: string; // הערות
+  photo: string; // תמונה (base64)
+  resume: string; // קורות חיים (base64 PDF)
 }
 
 export const EMPTY_EMPLOYEE: Omit<Employee, 'id'> = {
@@ -29,4 +31,6 @@ export const EMPTY_EMPLOYEE: Omit<Employee, 'id'> = {
   admissionDate: '',
   organization: '',
   notes: '',
+  photo: '',
+  resume: '',
 };

@@ -16,6 +16,8 @@ export function fromDb(row: any): Employee {
     admissionDate: row.admission_date || '',
     organization: row.organization || '',
     notes: row.notes || '',
+    photo: row.photo || '',
+    resume: row.resume || '',
   }
 }
 
@@ -34,5 +36,7 @@ export function toDb(emp: Omit<Employee, 'id'>, _userId?: string) {
     admission_date: emp.admissionDate,
     organization: emp.organization,
     notes: emp.notes,
+    photo: emp.photo || null,
+    resume: emp.resume || null,
   }
 }

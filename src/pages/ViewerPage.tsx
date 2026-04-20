@@ -25,22 +25,74 @@ function FieldRow({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null
   return (
     <div style={{ display: 'flex', gap: 6, fontSize: 13, lineHeight: 1.5 }}>
-      <span style={{ color: '#94a3b8', whiteSpace: 'nowrap', minWidth: 80 }}>{label}</span>
+      <span style={{ color: '#94a3b8', whiteSpace: 'nowrap', minWidth: 90 }}>{label}</span>
       <span style={{ color: '#1e293b', fontWeight: 500, wordBreak: 'break-word' }}>{value}</span>
     </div>
   )
 }
 
-function SidePanel({ selected }: { selected: SelectedNode | null }) {
+function buildBreadcrumb(unit: OrgUnit, allUnits: OrgUnit[]): string {
+  const chain: string[] = [unit.name]
+  let current = unit
+  for (let i = 0; i < 10; i++) {
+    if (!current.parentName) break
+    const parent = allUnits.find(u => u.name === current.parentName)
+    if (!parent) break
+    chain.unshift(parent.name)
+    current = parent
+  }
+  return chain.join(' / ')
+}
+
+function SidePanel({
+  selected, employees, orgUnits, collapsed, onToggleCollapse,
+}: {
+  selected: SelectedNode | null
+  employees: Employee[]
+  orgUnits: OrgUnit[]
+  collapsed: boolean
+  onToggleCollapse: () => void
+}) {
+  const panelW = collapsed ? 36 : 300
+
+  const toggleBtn = (
+    <button
+      onClick={onToggleCollapse}
+      style={{
+        position: 'absolute', top: 12, left: collapsed ? 6 : 8, zIndex: 10,
+        width: 24, height: 24, borderRadius: '50%', border: '1px solid #e2e8f0',
+        background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center',
+        justifyContent: 'center', boxShadow: '0 1px 4px #0001', flexShrink: 0,
+      }}
+      title={collapsed ? 'פתח פאנל' : 'סגור פאנל'}
+    >
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2.5">
+        {collapsed
+          ? <polyline points="9 18 15 12 9 6" />
+          : <polyline points="15 18 9 12 15 6" />
+        }
+      </svg>
+    </button>
+  )
+
+  if (collapsed) {
+    return (
+      <div style={{ width: panelW, minWidth: panelW, height: '100%', background: '#f8fafc', borderRight: '1px solid #e2e8f0', position: 'relative', flexShrink: 0 }}>
+        {toggleBtn}
+      </div>
+    )
+  }
+
   const panelStyle: React.CSSProperties = {
-    width: 280, minWidth: 280, height: '100%', background: '#f8fafc',
+    width: panelW, minWidth: panelW, height: '100%', background: '#f8fafc',
     borderRight: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column',
-    direction: 'rtl', overflow: 'hidden',
+    direction: 'rtl', overflow: 'hidden', position: 'relative', flexShrink: 0,
   }
 
   if (!selected) {
     return (
       <div style={panelStyle}>
+        {toggleBtn}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#cbd5e1', gap: 10, padding: 24 }}>
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3">
             <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
@@ -54,34 +106,63 @@ function SidePanel({ selected }: { selected: SelectedNode | null }) {
   if (selected.kind === 'employee') {
     const e = selected.employee
     const color = divColor(e.division)
-    const initials = `${e.firstName.charAt(0)}${e.lastName.charAt(0)}` || '?'
+
+    const managerEmp = employees.find(m =>
+      m.employeeNumber === e.directManager ||
+      `${m.firstName} ${m.lastName}` === e.directManager ||
+      `${m.lastName} ${m.firstName}` === e.directManager
+    )
+    const managerDisplay = managerEmp
+      ? `${managerEmp.firstName} ${managerEmp.lastName}${managerEmp.role ? ` — ${managerEmp.role}` : ''}`
+      : e.directManager || null
+
     return (
       <div style={panelStyle}>
-        <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '16px 16px 14px' }}>
+        {toggleBtn}
+        <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '44px 14px 12px' }}>
           <div style={{ height: 3, background: color, borderRadius: 99, marginBottom: 12 }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{
-              width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
-              background: e.gender === 'נקבה' ? '#ec4899' : color,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#fff', fontWeight: 700, fontSize: 14,
-            }}>{initials}</div>
-            <div>
+            {e.photo
+              ? <img src={e.photo} alt="" style={{ width: 52, height: 52, borderRadius: '50%', objectFit: 'cover', border: `2px solid ${color}`, flexShrink: 0 }} />
+              : <div style={{
+                  width: 52, height: 52, borderRadius: '50%', flexShrink: 0,
+                  background: e.gender === 'נקבה' ? '#ec4899' : color,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#fff', fontWeight: 700, fontSize: 17,
+                }}>{`${e.firstName.charAt(0)}${e.lastName.charAt(0)}` || '?'}</div>
+            }
+            <div style={{ overflow: 'hidden' }}>
               <div style={{ fontWeight: 700, fontSize: 15, color: '#0f172a' }}>{e.firstName} {e.lastName}</div>
-              {e.role && <div style={{ fontSize: 12, color: '#64748b', marginTop: 1 }}>{e.role}</div>}
+              {e.role && <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{e.role}</div>}
             </div>
           </div>
         </div>
-        <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <FieldRow label="מס׳ עובד"  value={e.employeeNumber} />
-          <FieldRow label="ז/נ"        value={e.gender} />
-          <FieldRow label="חטיבה"      value={e.division} />
+        <div style={{ flex: 1, overflowY: 'auto', padding: '14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
           <FieldRow label="מחלקה"      value={e.department} />
-          <FieldRow label="תכנית"      value={e.program} />
-          <FieldRow label="מנהל ישיר"  value={e.directManager} />
-          <FieldRow label="שנת קליטה"  value={e.admissionYear} />
-          <FieldRow label="ת. קליטה"   value={e.admissionDate} />
-          <FieldRow label="ארגון"      value={e.organization} />
+          <FieldRow label="מנהל ישיר"  value={managerDisplay} />
+          <FieldRow label="שנת התחלה"  value={e.admissionYear} />
+          {e.resume && (
+            <div style={{ marginTop: 4 }}>
+              <button
+                onClick={() => {
+                  const a = document.createElement('a')
+                  a.href = e.resume
+                  a.target = '_blank'
+                  a.click()
+                }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px',
+                  background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8,
+                  color: '#2563eb', fontSize: 12, fontWeight: 600, cursor: 'pointer', width: '100%',
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                </svg>
+                פתח קורות חיים
+              </button>
+            </div>
+          )}
           {e.notes && (
             <div style={{ marginTop: 4, padding: '8px 10px', background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12, color: '#475569', lineHeight: 1.6 }}>
               {e.notes}
@@ -95,18 +176,21 @@ function SidePanel({ selected }: { selected: SelectedNode | null }) {
   const u = selected.unit
   const color = TYPE_COLOR[u.type] ?? '#334155'
   const bg    = TYPE_BG[u.type]    ?? '#f1f5f9'
+  const breadcrumb = buildBreadcrumb(u, orgUnits)
+
   return (
     <div style={panelStyle}>
-      <div style={{ background: bg, borderBottom: `2px solid ${color}`, padding: '16px 16px 14px' }}>
+      {toggleBtn}
+      <div style={{ background: bg, borderBottom: `2px solid ${color}`, padding: '44px 14px 12px' }}>
         <div style={{
           display: 'inline-block', background: color, color: '#fff',
           borderRadius: 6, padding: '2px 10px', fontSize: 11, fontWeight: 700, marginBottom: 8,
         }}>{u.type}</div>
         <div style={{ fontWeight: 700, fontSize: 16, color }}>{u.name}</div>
       </div>
-      <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <FieldRow label="שייך ל" value={u.parentName || '—'} />
-        <FieldRow label="מנהל"   value={selected.managerName || '—'} />
+      <div style={{ flex: 1, overflowY: 'auto', padding: '14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <FieldRow label="מיקום" value={breadcrumb} />
+        <FieldRow label="מנהל"  value={selected.managerName || null} />
       </div>
     </div>
   )
@@ -115,6 +199,7 @@ function SidePanel({ selected }: { selected: SelectedNode | null }) {
 export default function ViewerPage() {
   const [mode, setMode] = useState<TreeMode>('combined')
   const [selected, setSelected] = useState<SelectedNode | null>(null)
+  const [panelCollapsed, setPanelCollapsed] = useState(false)
 
   const MODES: { key: TreeMode; label: string }[] = [
     { key: 'manager',  label: 'עץ ניהולי' },
@@ -141,7 +226,13 @@ export default function ViewerPage() {
 
       {/* Tree + Side panel */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'row', minHeight: 0, overflow: 'hidden' }}>
-        <SidePanel selected={selected} />
+        <SidePanel
+          selected={selected}
+          employees={ALL_EMPLOYEES}
+          orgUnits={ALL_ORG_UNITS}
+          collapsed={panelCollapsed}
+          onToggleCollapse={() => setPanelCollapsed(v => !v)}
+        />
         <div style={{ flex: 1, direction: 'ltr', minWidth: 0, minHeight: 0 }}>
           <OrgTreeFlow
             employees={ALL_EMPLOYEES}
