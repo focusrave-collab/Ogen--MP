@@ -145,10 +145,11 @@ function SidePanel({
             <div style={{ marginTop: 4 }}>
               <button
                 onClick={() => {
-                  const a = document.createElement('a')
-                  a.href = e.resume
-                  a.target = '_blank'
-                  a.click()
+                  const [header, b64] = e.resume.split(',')
+                  const mime = header.split(':')[1].split(';')[0]
+                  const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0))
+                  const url = URL.createObjectURL(new Blob([bytes], { type: mime }))
+                  window.open(url, '_blank')
                 }}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px',
