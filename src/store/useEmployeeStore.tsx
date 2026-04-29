@@ -22,12 +22,20 @@ export function EmployeeProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  useEffect(() => {
+    (async () => {
+      try {
+        await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS photo TEXT`
+        await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS resume TEXT`
+      } catch { /* columns may already exist */ }
+      fetchEmployees()
+    })()
+  }, [])
+
   const fetchEmployees = async () => {
     setLoading(true)
     setError(null)
     try {
-      await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS photo TEXT`
-      await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS resume TEXT`
       const rows = await sql`SELECT * FROM employees ORDER BY created_at`
       setEmployees(rows.map(fromDb))
     } catch (err: any) {
@@ -37,15 +45,13 @@ export function EmployeeProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  useEffect(() => { fetchEmployees() }, [])
-
   const addEmployee = async (emp: Omit<Employee, 'id'>) => {
     try {
       const [row] = await sql`
         INSERT INTO employees
-          (gender, employee_number, first_name, last_name, role, program, department, division, direct_manager, admission_year, admission_date, organization, notes, photo, resume)
+          (gender, employee_number, first_name, last_name, role, program, department, division, direct_manager, admission_year, admission_date, organization, notes)
         VALUES
-          (${emp.gender}, ${emp.employeeNumber}, ${emp.firstName}, ${emp.lastName}, ${emp.role}, ${emp.program}, ${emp.department}, ${emp.division}, ${emp.directManager}, ${emp.admissionYear}, ${emp.admissionDate}, ${emp.organization}, ${emp.notes}, ${emp.photo || null}, ${emp.resume || null})
+          (${emp.gender}, ${emp.employeeNumber}, ${emp.firstName}, ${emp.lastName}, ${emp.role}, ${emp.program}, ${emp.department}, ${emp.division}, ${emp.directManager}, ${emp.admissionYear}, ${emp.admissionDate}, ${emp.organization}, ${emp.notes})
         RETURNING *`
       setEmployees(prev => [...prev, fromDb(row)])
     } catch (err: any) {
