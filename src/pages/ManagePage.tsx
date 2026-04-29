@@ -231,7 +231,7 @@ export default function ManagePage() {
       </div>
 
       {/* Employees Table */}
-      <div className="overflow-auto rounded-xl border border-slate-200 shadow-sm bg-white" style={{ maxHeight: '60vh' }}>
+      <div className="overflow-auto rounded-xl border border-slate-200 shadow-sm bg-white" style={{ minHeight: 420, maxHeight: 'max(420px, 60vh)' }}>
         <table className="w-full text-sm border-collapse" style={{ minWidth: 1400 }}>
           <thead>
             <tr className="bg-slate-700 text-white sticky top-0 z-10">
