@@ -7,8 +7,6 @@ import type { OrgUnit } from '../types/orgUnit'
 declare global { interface Window { __ORG_DATA__?: { employees: Employee[]; orgUnits: OrgUnit[] } } }
 const { employees: ALL_EMPLOYEES = [], orgUnits: ALL_ORG_UNITS = [] } = window.__ORG_DATA__ ?? {}
 
-type TreeMode = 'manager' | 'orgunit' | 'combined'
-
 const TYPE_COLOR: Record<string, string> = { 'ארגון': '#a21caf', 'חטיבה': '#1e40af', 'מחלקה': '#6d28d9', 'תכנית': '#065f46' }
 const TYPE_BG: Record<string, string>    = { 'ארגון': '#fdf4ff', 'חטיבה': '#dbeafe', 'מחלקה': '#ede9fe', 'תכנית': '#d1fae5' }
 
@@ -198,31 +196,14 @@ function SidePanel({
 }
 
 export default function ViewerPage() {
-  const [mode, setMode] = useState<TreeMode>('combined')
   const [selected, setSelected] = useState<SelectedNode | null>(null)
   const [panelCollapsed, setPanelCollapsed] = useState(false)
-
-  const MODES: { key: TreeMode; label: string }[] = [
-    { key: 'manager',  label: 'עץ ניהולי' },
-    { key: 'orgunit',  label: 'עץ ארגוני' },
-    { key: 'combined', label: 'משולב' },
-  ]
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, direction: 'rtl', minHeight: 0, overflow: 'hidden' }}>
       {/* Toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: '#fff', borderBottom: '1px solid #e2e8f0', flexShrink: 0, boxShadow: '0 1px 4px #0001' }}>
-        <span style={{ fontWeight: 700, fontSize: 18, color: '#1e293b', marginLeft: 16 }}>עוגן — עץ ארגוני</span>
-        <div style={{ display: 'flex', borderRadius: 8, border: '1px solid #cbd5e1', overflow: 'hidden', fontSize: 13 }}>
-          {MODES.map((m, i) => (
-            <button key={m.key} onClick={() => setMode(m.key)} style={{
-              padding: '5px 12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-              background: mode === m.key ? '#2563eb' : '#fff',
-              color: mode === m.key ? '#fff' : '#475569',
-              border: 'none', borderLeft: i > 0 ? '1px solid #cbd5e1' : 'none',
-            }}>{m.label}</button>
-          ))}
-        </div>
+        <span style={{ fontWeight: 700, fontSize: 18, color: '#1e293b' }}>עוגן — עץ ארגוני</span>
       </div>
 
       {/* Tree + Side panel */}
@@ -238,7 +219,7 @@ export default function ViewerPage() {
           <OrgTreeFlow
             employees={ALL_EMPLOYEES}
             orgUnits={ALL_ORG_UNITS}
-            mode={mode}
+            mode="combined"
             onSelect={setSelected}
           />
         </div>
