@@ -673,6 +673,30 @@ export default function OrgTreeFlow({ employees, orgUnits = [], mode = 'manager'
 
   nodesRef.current = nodes
 
+  // Compute initial viewport synchronously from node bounding box — no ResizeObserver timing issues
+  const defaultViewport = useMemo(() => {
+    if (nodes.length === 0) return { x: 0, y: 0, zoom: 1 }
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    nodes.forEach(n => {
+      const w = n.type === 'unit' ? UNIT_W : EMP_W
+      const h = n.type === 'unit' ? UNIT_H : EMP_H
+      minX = Math.min(minX, n.position.x)
+      minY = Math.min(minY, n.position.y)
+      maxX = Math.max(maxX, n.position.x + w)
+      maxY = Math.max(maxY, n.position.y + h)
+    })
+    const graphW = maxX - minX
+    const graphH = maxY - minY
+    const cW = Math.max(window.innerWidth - 360, 300)
+    const cH = Math.max(window.innerHeight - 120, 200)
+    const zoom = Math.max(Math.min((cW - 80) / graphW, (cH - 80) / graphH, 1.5), 0.05)
+    return {
+      x: (cW - graphW * zoom) / 2 - minX * zoom + 40,
+      y: (cH - graphH * zoom) / 2 - minY * zoom + 40,
+      zoom,
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   if (employees.length === 0 && orgUnits.length === 0) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8', gap: 12 }}>
@@ -689,7 +713,7 @@ export default function OrgTreeFlow({ employees, orgUnits = [], mode = 'manager'
     <div style={{ width: '100%', height: '100%' }}>
       <ReactFlow
         nodes={nodes} edges={edges} nodeTypes={nodeTypes}
-        fitView fitViewOptions={{ padding: 0.15 }}
+        defaultViewport={defaultViewport}
         minZoom={0.05} maxZoom={2}
         nodesDraggable={false} nodesConnectable={false} elementsSelectable={false}
         onNodeClick={(_e, node) => {
