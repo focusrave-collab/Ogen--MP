@@ -562,7 +562,7 @@ function FlowPanel({ onExpandAll, onCollapseAll, nodes, anchorRef }: {
   nodes: Node[]; anchorRef: React.MutableRefObject<{ id: string; x: number; y: number } | null>
 }) {
   const { fitView, getViewport, setViewport } = useReactFlow()
-  useEffect(() => { const t = setTimeout(() => fitView({ padding: 0.15 }), 100); return () => clearTimeout(t) }, [])
+  useEffect(() => { const t = setTimeout(() => fitView({ padding: 0.15 }), 500); return () => clearTimeout(t) }, [])
   useEffect(() => {
     if (!anchorRef.current) return
     const { id, x: oldX, y: oldY } = anchorRef.current; anchorRef.current = null
@@ -689,6 +689,7 @@ export default function OrgTreeFlow({ employees, orgUnits = [], mode = 'manager'
     <div style={{ width: '100%', height: '100%' }}>
       <ReactFlow
         nodes={nodes} edges={edges} nodeTypes={nodeTypes}
+        fitView fitViewOptions={{ padding: 0.15 }}
         minZoom={0.05} maxZoom={2}
         nodesDraggable={false} nodesConnectable={false} elementsSelectable={false}
         onNodeClick={(_e, node) => {
