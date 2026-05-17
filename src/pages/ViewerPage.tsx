@@ -221,6 +221,7 @@ export default function ViewerPage() {
             orgUnits={ALL_ORG_UNITS}
             mode="combined"
             onSelect={setSelected}
+            startExpanded
           />
         </div>
       </div>

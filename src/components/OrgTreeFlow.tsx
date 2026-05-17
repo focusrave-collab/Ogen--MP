@@ -596,11 +596,12 @@ export type SelectedNode =
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function OrgTreeFlow({ employees, orgUnits = [], mode = 'manager', onSelect }: {
+export default function OrgTreeFlow({ employees, orgUnits = [], mode = 'manager', onSelect, startExpanded = false }: {
   employees: Employee[]
   orgUnits?: OrgUnit[]
   mode?: TreeMode
   onSelect?: (node: SelectedNode) => void
+  startExpanded?: boolean
 }) {
   const employeesRef = useRef(employees)
   employeesRef.current = employees
@@ -608,12 +609,17 @@ export default function OrgTreeFlow({ employees, orgUnits = [], mode = 'manager'
   orgUnitsRef.current = orgUnits
 
   const defaultCollapsed = useMemo(() => computeDefaultCollapsed(employees, orgUnits, mode), [employees, orgUnits, mode])
-  const [collapsed, setCollapsed] = useState<Set<string>>(() => computeDefaultCollapsed(employees, orgUnits, mode))
+  const [collapsed, setCollapsed] = useState<Set<string>>(() =>
+    startExpanded ? new Set() : computeDefaultCollapsed(employees, orgUnits, mode)
+  )
 
   // Reset on mode or data change
   const prevKeyRef = useRef('')
   const key = `${mode}-${employees.length}-${orgUnits.length}`
-  if (prevKeyRef.current !== key) { prevKeyRef.current = key; setCollapsed(computeDefaultCollapsed(employees, orgUnits, mode)) }
+  if (prevKeyRef.current !== key) {
+    prevKeyRef.current = key
+    setCollapsed(startExpanded ? new Set<string>() : computeDefaultCollapsed(employees, orgUnits, mode))
+  }
 
   const nodesRef = useRef<Node[]>([])
   const anchorRef = useRef<{ id: string; x: number; y: number } | null>(null)
@@ -673,7 +679,7 @@ export default function OrgTreeFlow({ employees, orgUnits = [], mode = 'manager'
 
   nodesRef.current = nodes
 
-  // Compute initial viewport synchronously from node bounding box — no ResizeObserver timing issues
+  // Compute initial viewport synchronously from node bounding box
   const defaultViewport = useMemo(() => {
     if (nodes.length === 0) return { x: 0, y: 0, zoom: 1 }
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
@@ -687,12 +693,12 @@ export default function OrgTreeFlow({ employees, orgUnits = [], mode = 'manager'
     })
     const graphW = maxX - minX
     const graphH = maxY - minY
-    const cW = Math.max(window.innerWidth - 360, 300)
-    const cH = Math.max(window.innerHeight - 120, 200)
-    const zoom = Math.max(Math.min((cW - 80) / graphW, (cH - 80) / graphH, 1.5), 0.05)
+    const cW = Math.max(window.innerWidth - 340, 300)
+    const cH = Math.max(window.innerHeight - 80, 200)
+    const zoom = Math.max(Math.min((cW - 40) / graphW, (cH - 40) / graphH, 1.5), 0.05)
     return {
-      x: (cW - graphW * zoom) / 2 - minX * zoom + 40,
-      y: (cH - graphH * zoom) / 2 - minY * zoom + 40,
+      x: cW / 2 - (minX + maxX) / 2 * zoom,
+      y: cH / 2 - (minY + maxY) / 2 * zoom,
       zoom,
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
