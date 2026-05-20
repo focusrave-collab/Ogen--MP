@@ -4,20 +4,9 @@ import { useOrgUnitStore } from '../store/useOrgUnitStore'
 import OrgTreeFlow, { type SelectedNode } from '../components/OrgTreeFlow'
 import type { Employee } from '../types/employee'
 import type { OrgUnit } from '../types/orgUnit'
+import { resolveUnitColor, resolveEmployeeUnitColor } from '../lib/unitColor'
 
 type TreeMode = 'manager' | 'orgunit' | 'combined'
-
-const TYPE_COLOR: Record<string, string> = { 'ארגון': '#a21caf', 'חטיבה': '#1e40af', 'מחלקה': '#6d28d9', 'תכנית': '#065f46' }
-const TYPE_BG: Record<string, string>    = { 'ארגון': '#fdf4ff', 'חטיבה': '#dbeafe', 'מחלקה': '#ede9fe', 'תכנית': '#d1fae5' }
-
-const PALETTE = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899', '#ef4444']
-const DIV_COLOR: Record<string, string> = {}
-let ci = 0
-function divColor(div: string) {
-  if (!div) return '#64748b'
-  if (!DIV_COLOR[div]) DIV_COLOR[div] = PALETTE[ci++ % PALETTE.length]
-  return DIV_COLOR[div]
-}
 
 function FieldRow({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null
@@ -103,7 +92,7 @@ function SidePanel({
 
   if (selected.kind === 'employee') {
     const e = selected.employee
-    const color = divColor(e.division)
+    const color = resolveEmployeeUnitColor(e, orgUnits, '#64748b')
 
     const managerEmp = e.directManager ? employees.find(m =>
       (m.employeeNumber && m.employeeNumber === e.directManager) ||
@@ -173,8 +162,8 @@ function SidePanel({
   }
 
   const u = selected.unit
-  const color = TYPE_COLOR[u.type] ?? '#334155'
-  const bg    = TYPE_BG[u.type]    ?? '#f1f5f9'
+  const color = resolveUnitColor(u, orgUnits)
+  const bg    = `${color}18`
   const breadcrumb = buildBreadcrumb(u, orgUnits)
 
   return (
