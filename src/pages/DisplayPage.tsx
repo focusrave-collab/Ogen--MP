@@ -105,11 +105,11 @@ function SidePanel({
     const e = selected.employee
     const color = divColor(e.division)
 
-    const managerEmp = employees.find(m =>
-      m.employeeNumber === e.directManager ||
+    const managerEmp = e.directManager ? employees.find(m =>
+      (m.employeeNumber && m.employeeNumber === e.directManager) ||
       `${m.firstName} ${m.lastName}` === e.directManager ||
       `${m.lastName} ${m.firstName}` === e.directManager
-    )
+    ) : undefined
     const managerDisplay = managerEmp
       ? `${managerEmp.firstName} ${managerEmp.lastName}${managerEmp.role ? ` — ${managerEmp.role}` : ''}`
       : e.directManager || null
