@@ -13,6 +13,7 @@ interface OrgUnitStore {
   updateManager: (id: string, managerEmployeeNumber: string) => Promise<void>
   updateOrgUnit: (id: string, updates: Partial<Pick<OrgUnit, 'name' | 'type' | 'parentName'>>) => Promise<void>
   deleteOrgUnit: (id: string) => Promise<void>
+  updateUnitColor: (id: string, color: string | null) => Promise<void>
 }
 
 function fromDb(row: any): OrgUnit {
@@ -22,6 +23,7 @@ function fromDb(row: any): OrgUnit {
     type: row.type,
     parentName: row.parent_name ?? '',
     managerEmployeeNumber: row.manager_employee_number ?? '',
+    color: row.color ?? null,
   }
 }
 
@@ -37,7 +39,9 @@ export function OrgUnitProvider({ children }: { children: ReactNode }) {
     setOrgUnits(rows.map(fromDb))
   }
 
-  useEffect(() => { fetchOrgUnits() }, [])
+  useEffect(() => {
+    sql`ALTER TABLE org_units ADD COLUMN IF NOT EXISTS color TEXT`.then(() => fetchOrgUnits())
+  }, [])
 
   const syncFromEmployees = async (employees: Employee[]) => {
     setLoading(true)
@@ -123,8 +127,15 @@ export function OrgUnitProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const updateUnitColor = async (id: string, color: string | null) => {
+    try {
+      const [row] = await sql`UPDATE org_units SET color = ${color} WHERE id = ${id} RETURNING *`
+      setOrgUnits(prev => prev.map(u => u.id === id ? fromDb(row) : u))
+    } catch (err: any) { setError(err.message); throw err }
+  }
+
   return (
-    <OrgUnitContext.Provider value={{ orgUnits, loading, error, syncFromEmployees, addOrgUnit, updateManager, updateOrgUnit, deleteOrgUnit }}>
+    <OrgUnitContext.Provider value={{ orgUnits, loading, error, syncFromEmployees, addOrgUnit, updateManager, updateOrgUnit, deleteOrgUnit, updateUnitColor }}>
       {children}
     </OrgUnitContext.Provider>
   )

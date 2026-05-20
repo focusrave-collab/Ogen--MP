@@ -4,4 +4,5 @@ export interface OrgUnit {
   type: 'ארגון' | 'חטיבה' | 'מחלקה' | 'תכנית'
   parentName: string
   managerEmployeeNumber: string
+  color?: string | null
 }

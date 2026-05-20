@@ -4,6 +4,7 @@ import { useOrgUnitStore } from '../store/useOrgUnitStore'
 import type { Employee } from '../types/employee'
 import { EMPTY_EMPLOYEE } from '../types/employee'
 import type { OrgUnit } from '../types/orgUnit'
+import { resolveUnitColor } from '../lib/unitColor'
 
 const COLUMNS: { key: keyof Omit<Employee, 'id'>; label: string; width?: number }[] = [
   { key: 'gender', label: 'ז/נ', width: 70 },
@@ -30,7 +31,7 @@ interface EditingCell {
 
 export default function ManagePage() {
   const { employees, addEmployee, updateEmployee, deleteEmployee, importEmployees, error } = useEmployeeStore()
-  const { orgUnits, loading: orgLoading, error: orgError, syncFromEmployees, addOrgUnit, updateManager, updateOrgUnit, deleteOrgUnit } = useOrgUnitStore()
+  const { orgUnits, loading: orgLoading, error: orgError, syncFromEmployees, addOrgUnit, updateManager, updateOrgUnit, deleteOrgUnit, updateUnitColor } = useOrgUnitStore()
   const [editing, setEditing] = useState<EditingCell | null>(null)
   const [editValue, setEditValue] = useState('')
   const [search, setSearch] = useState('')
@@ -399,13 +400,14 @@ export default function ManagePage() {
                 <th className="px-3 py-2.5 text-right font-semibold border-l border-slate-600">שם</th>
                 <th className="px-3 py-2.5 text-right font-semibold border-l border-slate-600 w-44">שייך ל</th>
                 <th className="px-3 py-2.5 text-right font-semibold border-l border-slate-600 w-60">מנהל</th>
+                <th className="px-3 py-2.5 text-right font-semibold border-l border-slate-600 w-24">צבע</th>
                 <th className="px-3 py-2.5 text-center font-semibold w-14">מחיקה</th>
               </tr>
             </thead>
             <tbody>
               {sortedUnits.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-10 text-slate-400">
+                  <td colSpan={6} className="text-center py-10 text-slate-400">
                     לחץ "סנכרן מעובדים" כדי לטעון את היחידות הארגוניות
                   </td>
                 </tr>
@@ -480,6 +482,27 @@ export default function ManagePage() {
                               </option>
                             ))}
                         </select>
+                      </td>
+                      {/* צבע */}
+                      <td className="px-2 py-1.5 border-l border-slate-100">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <input
+                            type="color"
+                            value={resolveUnitColor(unit, orgUnits)}
+                            onChange={e => updateUnitColor(unit.id, e.target.value)}
+                            style={{ width: 30, height: 22, padding: 1, border: '1px solid #e2e8f0', borderRadius: 4, cursor: 'pointer', background: 'none' }}
+                            title="בחר צבע"
+                          />
+                          {unit.color ? (
+                            <button
+                              onClick={() => updateUnitColor(unit.id, null)}
+                              style={{ fontSize: 10, color: '#94a3b8', cursor: 'pointer', border: 'none', background: 'none', padding: '0 2px', whiteSpace: 'nowrap' }}
+                              title="ירש מיחידת האם"
+                            >↩ ירש</button>
+                          ) : (
+                            <span style={{ fontSize: 10, color: '#cbd5e1', whiteSpace: 'nowrap' }}>ירש</span>
+                          )}
+                        </div>
                       </td>
                       {/* מחיקה */}
                       <td className="px-2 py-1.5 text-center border-l border-slate-100">

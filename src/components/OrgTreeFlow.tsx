@@ -16,6 +16,7 @@ import '@xyflow/react/dist/style.css'
 import dagre from '@dagrejs/dagre'
 import type { Employee } from '../types/employee'
 import type { OrgUnit } from '../types/orgUnit'
+import { resolveUnitColor } from '../lib/unitColor'
 
 export type TreeMode = 'manager' | 'orgunit' | 'combined'
 
@@ -110,11 +111,11 @@ const TYPE_BG: Record<string, string> = { 'ארגון': '#fdf4ff', 'חטיבה':
 // ─── Employee node ────────────────────────────────────────────────────────────
 
 function EmployeeNode({ data }: NodeProps) {
-  const { employee, hasChildren, isCollapsed, isRoot } = data as {
-    employee: Employee; hasChildren: boolean; isCollapsed: boolean; isRoot: boolean
+  const { employee, hasChildren, isCollapsed, isRoot, empColor } = data as {
+    employee: Employee; hasChildren: boolean; isCollapsed: boolean; isRoot: boolean; empColor?: string
   }
   const initials = `${employee.firstName.charAt(0)}${employee.lastName.charAt(0)}` || '?'
-  const divColor = getDivisionColor(employee.division)
+  const divColor = empColor ?? getDivisionColor(employee.division)
 
   return (
     <div style={{
@@ -171,11 +172,11 @@ function EmployeeNode({ data }: NodeProps) {
 // ─── Org Unit node ────────────────────────────────────────────────────────────
 
 function UnitNode({ data }: NodeProps) {
-  const { unit, managerName, hasChildren, isCollapsed } = data as {
-    unit: OrgUnit; managerName: string; hasChildren: boolean; isCollapsed: boolean
+  const { unit, managerName, hasChildren, isCollapsed, unitColor } = data as {
+    unit: OrgUnit; managerName: string; hasChildren: boolean; isCollapsed: boolean; unitColor?: string
   }
-  const color = TYPE_COLOR[unit.type] ?? '#334155'
-  const bg = TYPE_BG[unit.type] ?? '#f1f5f9'
+  const color = unitColor ?? TYPE_COLOR[unit.type] ?? '#334155'
+  const bg = unitColor ? `${unitColor}18` : TYPE_BG[unit.type] ?? '#f1f5f9'
 
   return (
     <div style={{
@@ -298,11 +299,12 @@ function buildOrgUnitElements(orgUnits: OrgUnit[], employees: Employee[], collap
   visible.forEach(id => {
     const u = unitById.get(id)!
     const hasChildren = (childUnitsOf.get(id) ?? []).length > 0
+    const unitColor = resolveUnitColor(u, orgUnits)
     sizes.set(id, { w: UNIT_W, h: UNIT_H })
     nodes.push({
       id, type: 'unit', position: { x: 0, y: 0 },
       sourcePosition: Position.Bottom, targetPosition: Position.Top,
-      data: { unit: u, managerName: managerName(u.managerEmployeeNumber), hasChildren, isCollapsed: collapsed.has(id), onToggle },
+      data: { unit: u, managerName: managerName(u.managerEmployeeNumber), hasChildren, isCollapsed: collapsed.has(id), onToggle, unitColor },
     })
   })
   visible.forEach(id => {
@@ -434,13 +436,23 @@ function buildCombinedElements(orgUnits: OrgUnit[], employees: Employee[], colla
 
   visibleUnits.forEach(uid => {
     const u = orgUnits.find(o => o.id === uid)!
+    const unitColor = resolveUnitColor(u, orgUnits)
     sizes.set(uid, { w: UNIT_W, h: UNIT_H })
     nodes.push({
       id: uid, type: 'unit', position: { x: 0, y: 0 },
       sourcePosition: Position.Bottom, targetPosition: Position.Top,
-      data: { unit: u, managerName: managerName(u.managerEmployeeNumber), hasChildren: hasUnitChildren(uid), isCollapsed: collapsed.has(uid), onToggle: (id: string) => onToggle(id) },
+      data: { unit: u, managerName: managerName(u.managerEmployeeNumber), hasChildren: hasUnitChildren(uid), isCollapsed: collapsed.has(uid), onToggle: (id: string) => onToggle(id), unitColor },
     })
   })
+
+  function empColor(emp: Employee): string {
+    const uid = homeUnitId(emp)
+    if (uid) {
+      const u = orgUnits.find(o => o.id === uid)
+      if (u) return resolveUnitColor(u, orgUnits)
+    }
+    return getDivisionColor(emp.division)
+  }
 
   visibleEmps.forEach(eid => {
     const e = empById.get(eid)!
@@ -457,7 +469,7 @@ function buildCombinedElements(orgUnits: OrgUnit[], employees: Employee[], colla
     nodes.push({
       id: nodeId, type: 'employee', position: { x: 0, y: 0 },
       sourcePosition: Position.Bottom, targetPosition: Position.Top,
-      data: { employee: e, hasChildren: actualHasChildren, isCollapsed: collapsed.has(nodeId), isRoot: false, onToggle: (id: string) => onToggle(id) },
+      data: { employee: e, hasChildren: actualHasChildren, isCollapsed: collapsed.has(nodeId), isRoot: false, onToggle: (id: string) => onToggle(id), empColor: empColor(e) },
     })
   })
 
