@@ -148,6 +148,7 @@ export default function ManagePage() {
 
   // Sort org units: חטיבות → מחלקות → תכניות, then by name
   const TYPE_ORDER: Record<string, number> = { 'ארגון': 0, 'חטיבה': 1, 'מחלקה': 2, 'תכנית': 3 }
+  const UNIT_PALETTE = ['#ef4444', '#f97316', '#f59e0b', '#22c55e', '#14b8a6', '#3b82f6', '#8b5cf6', '#ec4899']
   const sortedUnits = [...orgUnits].sort((a, b) =>
     TYPE_ORDER[a.type] - TYPE_ORDER[b.type] || a.name.localeCompare(b.name, 'he')
   )
@@ -400,7 +401,7 @@ export default function ManagePage() {
                 <th className="px-3 py-2.5 text-right font-semibold border-l border-slate-600">שם</th>
                 <th className="px-3 py-2.5 text-right font-semibold border-l border-slate-600 w-44">שייך ל</th>
                 <th className="px-3 py-2.5 text-right font-semibold border-l border-slate-600 w-60">מנהל</th>
-                <th className="px-3 py-2.5 text-right font-semibold border-l border-slate-600 w-24">צבע</th>
+                <th className="px-3 py-2.5 text-right font-semibold border-l border-slate-600 w-48">צבע</th>
                 <th className="px-3 py-2.5 text-center font-semibold w-14">מחיקה</th>
               </tr>
             </thead>
@@ -485,23 +486,42 @@ export default function ManagePage() {
                       </td>
                       {/* צבע */}
                       <td className="px-2 py-1.5 border-l border-slate-100">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                          <input
-                            type="color"
-                            value={resolveUnitColor(unit, orgUnits)}
-                            onChange={e => updateUnitColor(unit.id, e.target.value)}
-                            style={{ width: 30, height: 22, padding: 1, border: '1px solid #e2e8f0', borderRadius: 4, cursor: 'pointer', background: 'none' }}
-                            title="בחר צבע"
-                          />
-                          {unit.color ? (
-                            <button
-                              onClick={() => updateUnitColor(unit.id, null)}
-                              style={{ fontSize: 10, color: '#94a3b8', cursor: 'pointer', border: 'none', background: 'none', padding: '0 2px', whiteSpace: 'nowrap' }}
-                              title="ירש מיחידת האם"
-                            >↩ ירש</button>
-                          ) : (
-                            <span style={{ fontSize: 10, color: '#cbd5e1', whiteSpace: 'nowrap' }}>ירש</span>
-                          )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
+                          {/* ירש מהורה */}
+                          {(() => {
+                            const resolved = resolveUnitColor(unit, orgUnits)
+                            const isSelected = !unit.color
+                            return (
+                              <button
+                                onClick={() => updateUnitColor(unit.id, null)}
+                                title="ירש מיחידת האם"
+                                style={{
+                                  width: 18, height: 18, borderRadius: '50%', cursor: 'pointer', padding: 0,
+                                  flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  background: resolved + '28',
+                                  border: isSelected ? `2px solid ${resolved}` : '1.5px dashed #cbd5e1',
+                                  boxShadow: isSelected ? `0 0 0 2px white, 0 0 0 4px ${resolved}` : 'none',
+                                  fontSize: 9, color: resolved, fontWeight: 700,
+                                }}
+                              >↩</button>
+                            )
+                          })()}
+                          {/* צבעים מוגדרים מראש */}
+                          {UNIT_PALETTE.map(c => {
+                            const isSelected = unit.color === c
+                            return (
+                              <button
+                                key={c}
+                                onClick={() => updateUnitColor(unit.id, c)}
+                                title={c}
+                                style={{
+                                  width: 18, height: 18, borderRadius: '50%', background: c,
+                                  cursor: 'pointer', padding: 0, flexShrink: 0, border: 'none',
+                                  boxShadow: isSelected ? `0 0 0 2px white, 0 0 0 4px ${c}` : 'none',
+                                }}
+                              />
+                            )
+                          })}
                         </div>
                       </td>
                       {/* מחיקה */}
