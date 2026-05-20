@@ -14,7 +14,7 @@ export function resolveUnitColor(unit: OrgUnit, allUnits: OrgUnit[]): string {
 }
 
 export function resolveEmployeeUnitColor(
-  emp: { program?: string; department?: string; division?: string },
+  emp: { program?: string; department?: string; division?: string; employeeNumber?: string },
   allUnits: OrgUnit[],
   fallback: string,
 ): string {
@@ -23,6 +23,7 @@ export function resolveEmployeeUnitColor(
   const unit =
     (emp.program?.trim() ? find(emp.program, 'תכנית') : null) ||
     (emp.department?.trim() ? find(emp.department, 'מחלקה') : null) ||
-    (emp.division?.trim() ? find(emp.division, 'חטיבה') : null)
+    (emp.division?.trim() ? find(emp.division, 'חטיבה') : null) ||
+    (emp.employeeNumber?.trim() ? allUnits.find(u => u.managerEmployeeNumber?.trim() === emp.employeeNumber!.trim()) : null)
   return unit ? resolveUnitColor(unit, allUnits) : fallback
 }

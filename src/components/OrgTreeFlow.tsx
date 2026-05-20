@@ -451,6 +451,11 @@ function buildCombinedElements(orgUnits: OrgUnit[], employees: Employee[], colla
       const u = orgUnits.find(o => o.id === uid)
       if (u) return resolveUnitColor(u, orgUnits)
     }
+    const managedUid = empIdToManagedUnitId.get(emp.id)
+    if (managedUid) {
+      const u = orgUnits.find(o => o.id === managedUid)
+      if (u) return resolveUnitColor(u, orgUnits)
+    }
     return getDivisionColor(emp.division)
   }
 
