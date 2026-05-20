@@ -644,15 +644,24 @@ export default function OrgTreeFlow({ employees, orgUnits = [], mode = 'manager'
         }
         // For unit nodes
         if (mode !== 'manager') {
+          const empByNumberMap = new Map(emps.map(e => [e.employeeNumber?.trim(), e]))
           const childUnitsOf = new Map<string, string[]>()
           units.forEach(u => {
             const parent = units.find(p => p.name === u.parentName)
             if (parent) { const arr = childUnitsOf.get(parent.id) ?? []; arr.push(u.id); childUnitsOf.set(parent.id, arr) }
           })
-          function resetUnitDescendants(uid: string) {
-            ;(childUnitsOf.get(uid) ?? []).forEach(cuid => { next.add(cuid); resetUnitDescendants(cuid) })
+          function collapseUnitTree(uid: string) {
+            // Also collapse this unit's manager emp node so re-expanding opens one level at a time
+            if (mode === 'combined') {
+              const unit = units.find(u => u.id === uid)
+              if (unit?.managerEmployeeNumber) {
+                const mgr = empByNumberMap.get(unit.managerEmployeeNumber.trim())
+                if (mgr) { next.add(`emp::${mgr.id}`); resetEmpDescendants(mgr.id) }
+              }
+            }
+            ;(childUnitsOf.get(uid) ?? []).forEach(cuid => { next.add(cuid); collapseUnitTree(cuid) })
           }
-          if (!id.startsWith('emp::')) resetUnitDescendants(id)
+          if (!id.startsWith('emp::')) collapseUnitTree(id)
         }
         // For employee nodes
         const empId = id.startsWith('emp::') ? id.slice(5) : id
