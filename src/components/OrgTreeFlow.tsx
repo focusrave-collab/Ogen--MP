@@ -537,15 +537,9 @@ function computeDefaultCollapsed(employees: Employee[], orgUnits: OrgUnit[], mod
       if (u.parentName && (childUnitsOf.get(u.id) ?? []).length > 0) result.add(u.id)
     })
   } else {
-    // combined: collapse all non-root units, all emp nodes with children
-    const childUnitsOf = new Map<string, string[]>()
-    orgUnits.forEach(u => {
-      const parent = orgUnits.find(p => p.name === u.parentName)
-      if (parent) { const arr = childUnitsOf.get(parent.id) ?? []; arr.push(u.id); childUnitsOf.set(parent.id, arr) }
-    })
-    orgUnits.forEach(u => {
-      if (u.parentName) result.add(u.id)
-    })
+    // combined: collapse ALL units (including roots) + all emp nodes with children
+    // so every click expands exactly one level at a time
+    orgUnits.forEach(u => result.add(u.id))
     const { findManager } = buildLookups(employees)
     const empChildrenOf = buildChildrenMap(employees, findManager)
     employees.forEach(e => {
