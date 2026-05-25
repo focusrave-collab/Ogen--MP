@@ -126,6 +126,16 @@ function SidePanel({
           <FieldRow label="מחלקה"      value={e.department} />
           <FieldRow label="מנהל ישיר"  value={managerDisplay} />
           <FieldRow label="שנת התחלה"  value={e.admissionYear} />
+          {e.responsibilities && e.responsibilities.length > 0 && (
+            <div style={{ marginTop: 4 }}>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>תחומי אחריות</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                {e.responsibilities.map((r, i) => (
+                  <span key={i} style={{ background: '#f1f5f9', color: '#334155', borderRadius: 99, fontSize: 11, padding: '2px 8px', border: '1px solid #e2e8f0' }}>{r}</span>
+                ))}
+              </div>
+            </div>
+          )}
           {e.resume && (
             <div style={{ marginTop: 4 }}>
               <button

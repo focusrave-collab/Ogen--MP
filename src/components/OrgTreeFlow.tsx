@@ -645,9 +645,8 @@ export default function OrgTreeFlow({ employees, orgUnits = [], mode = 'manager'
       const { findManager } = buildLookups(emps)
       const empChildrenOf = buildChildrenMap(emps, findManager)
       const next = new Set(prev)
+      const empByNumberMap = new Map(emps.map(e => [e.employeeNumber?.trim(), e]))
 
-      // Always reset all descendants to collapsed — whether opening or closing.
-      // This ensures opening reveals only direct children (never a previously-expanded subtree).
       function resetEmpDescendants(eid: string) {
         ;(empChildrenOf.get(eid) ?? []).forEach(cid => {
           const cNodeId = mode === 'combined' ? `emp::${cid}` : cid
@@ -656,31 +655,48 @@ export default function OrgTreeFlow({ employees, orgUnits = [], mode = 'manager'
           resetEmpDescendants(cid)
         })
       }
-      if (mode !== 'manager') {
-        const empByNumberMap = new Map(emps.map(e => [e.employeeNumber?.trim(), e]))
-        const childUnitsOf = new Map<string, string[]>()
-        units.forEach(u => {
-          const parent = units.find(p => p.name === u.parentName)
-          if (parent) { const arr = childUnitsOf.get(parent.id) ?? []; arr.push(u.id); childUnitsOf.set(parent.id, arr) }
-        })
-        function collapseUnitTree(uid: string) {
-          if (mode === 'combined') {
-            const unit = units.find(u => u.id === uid)
-            if (unit?.managerEmployeeNumber) {
-              const mgr = empByNumberMap.get(unit.managerEmployeeNumber.trim())
-              if (mgr) { next.add(`emp::${mgr.id}`); resetEmpDescendants(mgr.id) }
-            }
+
+      const childUnitsOf = new Map<string, string[]>()
+      units.forEach(u => {
+        const parent = units.find(p => p.name === u.parentName)
+        if (parent) { const arr = childUnitsOf.get(parent.id) ?? []; arr.push(u.id); childUnitsOf.set(parent.id, arr) }
+      })
+
+      function collapseUnitTree(uid: string) {
+        if (mode === 'combined') {
+          const unit = units.find(u => u.id === uid)
+          if (unit?.managerEmployeeNumber) {
+            const mgr = empByNumberMap.get(unit.managerEmployeeNumber.trim())
+            if (mgr) { next.add(`emp::${mgr.id}`); resetEmpDescendants(mgr.id) }
           }
-          ;(childUnitsOf.get(uid) ?? []).forEach(cuid => { next.add(cuid); collapseUnitTree(cuid) })
         }
-        if (!id.startsWith('emp::')) collapseUnitTree(id)
+        ;(childUnitsOf.get(uid) ?? []).forEach(cuid => { next.add(cuid); collapseUnitTree(cuid) })
       }
+
+      // Always reset all descendants to collapsed before toggling
+      if (mode !== 'manager' && !id.startsWith('emp::')) collapseUnitTree(id)
       const empId = id.startsWith('emp::') ? id.slice(5) : id
       resetEmpDescendants(empId)
 
-      // Toggle the node itself (after descendants are reset)
-      if (next.has(id)) next.delete(id)
+      // Toggle the node itself
+      const wasCollapsed = next.has(id)
+      if (wasCollapsed) next.delete(id)
       else next.add(id)
+
+      // When opening a unit: accordion-close siblings + auto-expand manager one level
+      if (wasCollapsed && mode !== 'manager' && !id.startsWith('emp::')) {
+        const unit = units.find(u => u.id === id)
+        // Accordion: collapse all sibling units (same parentName)
+        units
+          .filter(u => u.id !== id && u.parentName === (unit?.parentName ?? ''))
+          .forEach(sib => { next.add(sib.id); collapseUnitTree(sib.id) })
+        // Auto-expand manager so its direct children are one click away
+        if (mode === 'combined' && unit?.managerEmployeeNumber) {
+          const mgr = empByNumberMap.get(unit.managerEmployeeNumber.trim())
+          if (mgr) next.delete(`emp::${mgr.id}`)
+        }
+      }
+
       return next
     })
   }, [mode])

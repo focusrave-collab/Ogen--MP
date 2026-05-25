@@ -27,6 +27,7 @@ export function EmployeeProvider({ children }: { children: ReactNode }) {
       try {
         await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS photo TEXT`
         await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS resume TEXT`
+        await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS responsibilities TEXT`
       } catch { /* columns may already exist */ }
       fetchEmployees()
     })()
@@ -49,9 +50,9 @@ export function EmployeeProvider({ children }: { children: ReactNode }) {
     try {
       const [row] = await sql`
         INSERT INTO employees
-          (gender, employee_number, first_name, last_name, role, program, department, division, direct_manager, admission_year, admission_date, organization, notes)
+          (gender, employee_number, first_name, last_name, role, program, department, division, direct_manager, admission_year, admission_date, organization, notes, responsibilities)
         VALUES
-          (${emp.gender}, ${emp.employeeNumber}, ${emp.firstName}, ${emp.lastName}, ${emp.role}, ${emp.program}, ${emp.department}, ${emp.division}, ${emp.directManager}, ${emp.admissionYear}, ${emp.admissionDate}, ${emp.organization}, ${emp.notes})
+          (${emp.gender}, ${emp.employeeNumber}, ${emp.firstName}, ${emp.lastName}, ${emp.role}, ${emp.program}, ${emp.department}, ${emp.division}, ${emp.directManager}, ${emp.admissionYear}, ${emp.admissionDate}, ${emp.organization}, ${emp.notes}, ${JSON.stringify(emp.responsibilities || [])})
         RETURNING *`
       setEmployees(prev => [...prev, fromDb(row)])
     } catch (err: any) {
@@ -72,7 +73,8 @@ export function EmployeeProvider({ children }: { children: ReactNode }) {
           division = ${m.division}, direct_manager = ${m.directManager},
           admission_year = ${m.admissionYear}, admission_date = ${m.admissionDate},
           organization = ${m.organization}, notes = ${m.notes},
-          photo = ${m.photo || null}, resume = ${m.resume || null}
+          photo = ${m.photo || null}, resume = ${m.resume || null},
+          responsibilities = ${JSON.stringify(m.responsibilities || [])}
         WHERE id = ${id} RETURNING *`
       setEmployees(prev => prev.map(e => e.id === id ? fromDb(row) : e))
     } catch (err: any) {
@@ -99,9 +101,9 @@ export function EmployeeProvider({ children }: { children: ReactNode }) {
         for (const emp of newEmployees) {
           await sql`
             INSERT INTO employees
-              (gender, employee_number, first_name, last_name, role, program, department, division, direct_manager, admission_year, admission_date, organization, notes, photo, resume)
+              (gender, employee_number, first_name, last_name, role, program, department, division, direct_manager, admission_year, admission_date, organization, notes, photo, resume, responsibilities)
             VALUES
-              (${emp.gender}, ${emp.employeeNumber}, ${emp.firstName}, ${emp.lastName}, ${emp.role}, ${emp.program}, ${emp.department}, ${emp.division}, ${emp.directManager}, ${emp.admissionYear}, ${emp.admissionDate}, ${emp.organization}, ${emp.notes}, ${emp.photo || null}, ${emp.resume || null})`
+              (${emp.gender}, ${emp.employeeNumber}, ${emp.firstName}, ${emp.lastName}, ${emp.role}, ${emp.program}, ${emp.department}, ${emp.division}, ${emp.directManager}, ${emp.admissionYear}, ${emp.admissionDate}, ${emp.organization}, ${emp.notes}, ${emp.photo || null}, ${emp.resume || null}, ${JSON.stringify(emp.responsibilities || [])})`
         }
         await fetchEmployees()
       }

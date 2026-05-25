@@ -18,6 +18,7 @@ export function fromDb(row: any): Employee {
     notes: row.notes || '',
     photo: row.photo || '',
     resume: row.resume || '',
+    responsibilities: row.responsibilities ? JSON.parse(row.responsibilities) : [],
   }
 }
 
@@ -38,5 +39,6 @@ export function toDb(emp: Omit<Employee, 'id'>, _userId?: string) {
     notes: emp.notes,
     photo: emp.photo || null,
     resume: emp.resume || null,
+    responsibilities: JSON.stringify(emp.responsibilities || []),
   }
 }

@@ -6,7 +6,9 @@ import { EMPTY_EMPLOYEE } from '../types/employee'
 import type { OrgUnit } from '../types/orgUnit'
 import { resolveUnitColor } from '../lib/unitColor'
 
-const COLUMNS: { key: keyof Omit<Employee, 'id'>; label: string; width?: number }[] = [
+type StringEmployeeKey = { [K in keyof Omit<Employee, 'id'>]: Omit<Employee, 'id'>[K] extends string ? K : never }[keyof Omit<Employee, 'id'>]
+
+const COLUMNS: { key: StringEmployeeKey; label: string; width?: number }[] = [
   { key: 'gender', label: 'ז/נ', width: 70 },
   { key: 'employeeNumber', label: "מס' עובד", width: 90 },
   { key: 'firstName', label: 'שם', width: 90 },
@@ -26,7 +28,7 @@ const GENDER_OPTIONS = ['זכר', 'נקבה', 'אחר']
 
 interface EditingCell {
   rowId: string
-  field: keyof Omit<Employee, 'id'>
+  field: StringEmployeeKey
 }
 
 export default function ManagePage() {
@@ -44,6 +46,8 @@ export default function ManagePage() {
   const [showAddUnit, setShowAddUnit] = useState(false)
   const [newUnit, setNewUnit] = useState({ type: 'חטיבה' as OrgUnit['type'], name: '', parentName: '', managerEmployeeNumber: '' })
   const [addUnitError, setAddUnitError] = useState('')
+  const [responsibilityInputFor, setResponsibilityInputFor] = useState<string | null>(null)
+  const [responsibilityInput, setResponsibilityInput] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
   const resumeInputRef = useRef<HTMLInputElement>(null)
@@ -78,7 +82,7 @@ export default function ManagePage() {
     `${e.firstName} ${e.lastName} ${e.employeeNumber} ${e.role} ${e.department}`.toLowerCase().includes(search.toLowerCase())
   )
 
-  function startEdit(rowId: string, field: keyof Omit<Employee, 'id'>, value: string) {
+  function startEdit(rowId: string, field: StringEmployeeKey, value: string) {
     setEditing({ rowId, field })
     setEditValue(value)
   }
@@ -102,7 +106,7 @@ export default function ManagePage() {
   function exportCSV() {
     const header = ['מס"ד', ...COLUMNS.map(c => c.label)].join(',')
     const rows = employees.map((e, i) =>
-      [i + 1, ...COLUMNS.map(c => `"${(e[c.key] || '').replace(/"/g, '""')}`)].join(',')
+      [i + 1, ...COLUMNS.map(c => `"${((e[c.key] as string) || '').replace(/"/g, '""')}`)].join(',')
     )
     const csv = [header, ...rows].join('\n')
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
@@ -122,7 +126,7 @@ export default function ManagePage() {
       .map(line => {
         const parts = line.split(',').map(v => v.replace(/^"|"$/g, '').replace(/""/g, '"'))
         const emp: Employee = { id: crypto.randomUUID(), ...EMPTY_EMPLOYEE }
-        COLUMNS.forEach((col, idx) => { emp[col.key] = parts[idx + 1] || '' })
+        COLUMNS.forEach((col, idx) => { (emp as any)[col.key] = parts[idx + 1] || '' })
         return emp
       })
       .filter(emp => emp.firstName || emp.lastName || emp.employeeNumber)
@@ -247,6 +251,7 @@ export default function ManagePage() {
                   {col.label}
                 </th>
               ))}
+              <th className="px-3 py-2.5 text-right font-semibold border-l border-slate-600 whitespace-nowrap" style={{ minWidth: 180 }}>תחומי אחריות</th>
               <th className="px-3 py-2.5 text-center font-semibold w-16">תמונה</th>
               <th className="px-3 py-2.5 text-center font-semibold w-16">קו"ח</th>
               <th className="px-3 py-2.5 text-center font-semibold w-16">מחיקה</th>
@@ -255,7 +260,7 @@ export default function ManagePage() {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={COLUMNS.length + 2} className="text-center py-16 text-slate-400">
+                <td colSpan={COLUMNS.length + 3} className="text-center py-16 text-slate-400">
                   {search ? 'לא נמצאו תוצאות' : 'אין עובדים. לחץ "הוסף עובד" להתחיל.'}
                 </td>
               </tr>
@@ -307,6 +312,52 @@ export default function ManagePage() {
                       </td>
                     )
                   })}
+                  {/* Responsibilities */}
+                  <td className="px-2 py-1.5 border-l border-slate-100" style={{ minWidth: 180 }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, alignItems: 'center' }}>
+                      {(emp.responsibilities || []).map((r, i) => (
+                        <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 2, background: '#f1f5f9', color: '#334155', borderRadius: 99, fontSize: 10, padding: '1px 6px', border: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
+                          {r}
+                          <button
+                            onClick={() => updateEmployee(emp.id, { responsibilities: (emp.responsibilities || []).filter((_, j) => j !== i) })}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 0, display: 'flex', alignItems: 'center' }}
+                          >
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                          </button>
+                        </span>
+                      ))}
+                      {responsibilityInputFor === emp.id ? (
+                        <input
+                          autoFocus
+                          value={responsibilityInput}
+                          onChange={e => setResponsibilityInput(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' && responsibilityInput.trim()) {
+                              updateEmployee(emp.id, { responsibilities: [...(emp.responsibilities || []), responsibilityInput.trim()] })
+                              setResponsibilityInput('')
+                              setResponsibilityInputFor(null)
+                            }
+                            if (e.key === 'Escape') { setResponsibilityInputFor(null); setResponsibilityInput('') }
+                          }}
+                          onBlur={() => {
+                            if (responsibilityInput.trim()) updateEmployee(emp.id, { responsibilities: [...(emp.responsibilities || []), responsibilityInput.trim()] })
+                            setResponsibilityInput('')
+                            setResponsibilityInputFor(null)
+                          }}
+                          placeholder="הוסף..."
+                          style={{ width: 80, fontSize: 11, border: '1px solid #93c5fd', borderRadius: 99, padding: '1px 6px', outline: 'none' }}
+                        />
+                      ) : (
+                        <button
+                          onClick={() => { setResponsibilityInputFor(emp.id); setResponsibilityInput('') }}
+                          style={{ width: 18, height: 18, borderRadius: '50%', background: '#eff6ff', border: '1px solid #bfdbfe', color: '#3b82f6', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                          title="הוסף תחום אחריות"
+                        >
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        </button>
+                      )}
+                    </div>
+                  </td>
                   {/* Photo upload */}
                   <td className="px-2 py-1.5 text-center border-l border-slate-100">
                     <div className="flex items-center justify-center gap-1">

@@ -15,6 +15,7 @@ export interface Employee {
   notes: string; // הערות
   photo: string; // תמונה (base64)
   resume: string; // קורות חיים (base64 PDF)
+  responsibilities: string[]; // תחומי אחריות
 }
 
 export const EMPTY_EMPLOYEE: Omit<Employee, 'id'> = {
@@ -33,4 +34,5 @@ export const EMPTY_EMPLOYEE: Omit<Employee, 'id'> = {
   notes: '',
   photo: '',
   resume: '',
+  responsibilities: [],
 };
