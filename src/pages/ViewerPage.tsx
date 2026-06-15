@@ -100,7 +100,7 @@ function SidePanel({
       `${m.lastName} ${m.firstName}` === e.directManager
     ) : undefined
     const managerDisplay = managerEmp
-      ? `${managerEmp.firstName} ${managerEmp.lastName}${managerEmp.role ? ` — ${managerEmp.role}` : ''}`
+      ? `${managerEmp.firstName} ${managerEmp.lastName}${managerEmp.role ? ` - ${managerEmp.role}` : ''}`
       : e.directManager || null
 
     return (
@@ -161,7 +161,7 @@ function SidePanel({
               </button>
             </div>
           )}
-          {e.notes && (
+          {e.notes?.trim() && (
             <div style={{ marginTop: 4, padding: '8px 10px', background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12, color: '#475569', lineHeight: 1.6 }}>
               {e.notes}
             </div>

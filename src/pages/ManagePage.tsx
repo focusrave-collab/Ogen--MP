@@ -518,7 +518,7 @@ export default function ManagePage() {
                             onBlur={commitUnitEdit} onKeyDown={unitKeyDown}
                             className="w-full border border-blue-400 rounded px-1 py-0.5 text-sm focus:outline-none" />
                         ) : (
-                          <span>{unit.parentName || '—'}</span>
+                          <span>{unit.parentName || '-'}</span>
                         )}
                       </td>
                       {/* מנהל */}

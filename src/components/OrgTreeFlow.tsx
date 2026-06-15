@@ -3,7 +3,6 @@ import {
   ReactFlow,
   Background,
   Controls,
-  Panel,
   Handle,
   Position,
   useReactFlow,
@@ -21,9 +20,9 @@ import { resolveUnitColor } from '../lib/unitColor'
 export type TreeMode = 'manager' | 'orgunit' | 'combined'
 
 const EMP_W = 210
-const EMP_H = 115
+const EMP_H = 90
 const UNIT_W = 240
-const UNIT_H = 72
+const UNIT_H = 62
 
 // ─── Lookup helpers ───────────────────────────────────────────────────────────
 
@@ -138,23 +137,18 @@ function EmployeeNode({ data }: NodeProps) {
               }}>{initials}</div>
           }
           <div style={{ overflow: 'hidden', flex: 1 }}>
-            <div style={{ fontWeight: 600, fontSize: 13, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div style={{ fontWeight: 600, fontSize: 15, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {employee.firstName} {employee.lastName}
             </div>
-            {employee.employeeNumber && <div style={{ fontSize: 10, color: '#94a3b8' }}>{employee.employeeNumber}</div>}
           </div>
         </div>
         {employee.role && (
           <div style={{
             display: 'inline-block', background: `${divColor}18`, color: divColor,
-            borderRadius: 99, fontSize: 10, padding: '2px 8px', marginBottom: 3,
+            borderRadius: 99, fontSize: 12, padding: '2px 8px',
             maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>{employee.role}</div>
         )}
-        <div style={{ fontSize: 10, color: '#64748b', lineHeight: 1.6 }}>
-          {employee.department && <div>מחלקה: {employee.department}</div>}
-          {employee.division && <div>חטיבה: {employee.division}</div>}
-        </div>
       </div>
       {hasChildren && (
         <div style={{
@@ -186,14 +180,8 @@ function UnitNode({ data }: NodeProps) {
     }}>
       <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
       <div style={{ padding: '10px 14px 12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{
-            background: color, color: '#fff', borderRadius: 6, padding: '2px 8px',
-            fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap',
-          }}>{unit.type}</div>
-          <div style={{ fontWeight: 700, fontSize: 14, color, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {unit.name}
-          </div>
+        <div style={{ fontWeight: 700, fontSize: 18, color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {unit.name}
         </div>
         {managerName && (
           <div style={{ fontSize: 10, color: '#475569', marginTop: 5, display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -554,22 +542,24 @@ function computeDefaultCollapsed(employees: Employee[], orgUnits: OrgUnit[], mod
       if (u.parentName && (childUnitsOf.get(u.id) ?? []).length > 0) result.add(u.id)
     })
   } else {
-    // combined: collapse ALL units (including roots) + all emp nodes with children
-    // so every click expands exactly one level at a time
-    orgUnits.forEach(u => result.add(u.id))
-    const { findManager } = buildLookups(employees)
-    const empChildrenOf = buildChildrenMap(employees, findManager)
-    employees.forEach(e => {
-      if ((empChildrenOf.get(e.id) ?? []).length > 0) result.add(`emp::${e.id}`)
-    })
+    // combined: root units open + their managers open; everything else collapsed
+    const empByNumber = new Map(employees.map(e => [e.employeeNumber?.trim(), e]))
+    orgUnits.forEach(u => { if (u.parentName) result.add(u.id) })
+    const rootMgrEmpIds = new Set<string>()
+    orgUnits
+      .filter(u => !u.parentName && u.managerEmployeeNumber)
+      .forEach(u => {
+        const mgr = empByNumber.get(u.managerEmployeeNumber!.trim())
+        if (mgr) rootMgrEmpIds.add(mgr.id)
+      })
+    employees.forEach(e => { if (!rootMgrEmpIds.has(e.id)) result.add(`emp::${e.id}`) })
   }
   return result
 }
 
-// ─── FlowPanel ────────────────────────────────────────────────────────────────
+// ─── ViewportManager ──────────────────────────────────────────────────────────
 
-function FlowPanel({ onExpandAll, onCollapseAll, nodes, anchorRef }: {
-  onExpandAll: () => void; onCollapseAll: () => void
+function ViewportManager({ nodes, anchorRef }: {
   nodes: Node[]; anchorRef: React.MutableRefObject<{ id: string; x: number; y: number } | null>
 }) {
   const { fitView, getViewport, setViewport } = useReactFlow()
@@ -582,21 +572,7 @@ function FlowPanel({ onExpandAll, onCollapseAll, nodes, anchorRef }: {
     const vp = getViewport()
     setViewport({ x: vp.x + (oldX - newNode.position.x) * vp.zoom, y: vp.y + (oldY - newNode.position.y) * vp.zoom, zoom: vp.zoom })
   }, [nodes])
-
-  return (
-    <Panel position="top-left">
-      <div style={{ display: 'flex', gap: 6, direction: 'rtl' }}>
-        <button onClick={() => { onExpandAll(); setTimeout(() => fitView({ padding: 0.15, duration: 400 }), 50) }} style={{
-          background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 12px',
-          fontSize: 12, fontWeight: 600, cursor: 'pointer', color: '#3b82f6', boxShadow: '0 1px 4px #0001', fontFamily: 'inherit',
-        }}>פתח הכל</button>
-        <button onClick={() => { onCollapseAll(); setTimeout(() => fitView({ padding: 0.15, duration: 400 }), 50) }} style={{
-          background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 12px',
-          fontSize: 12, fontWeight: 600, cursor: 'pointer', color: '#64748b', boxShadow: '0 1px 4px #0001', fontFamily: 'inherit',
-        }}>סגור הכל</button>
-      </div>
-    </Panel>
-  )
+  return null
 }
 
 // ─── Selected node type (exported for parent components) ─────────────────────
@@ -619,7 +595,6 @@ export default function OrgTreeFlow({ employees, orgUnits = [], mode = 'manager'
   const orgUnitsRef = useRef(orgUnits)
   orgUnitsRef.current = orgUnits
 
-  const defaultCollapsed = useMemo(() => computeDefaultCollapsed(employees, orgUnits, mode), [employees, orgUnits, mode])
   const [collapsed, setCollapsed] = useState<Set<string>>(() =>
     startExpanded ? new Set() : computeDefaultCollapsed(employees, orgUnits, mode)
   )
@@ -701,9 +676,6 @@ export default function OrgTreeFlow({ employees, orgUnits = [], mode = 'manager'
     })
   }, [mode])
 
-  const expandAll = useCallback(() => setCollapsed(new Set()), [])
-  const collapseAll = useCallback(() => setCollapsed(defaultCollapsed), [defaultCollapsed])
-
   const { nodes, edges } = useMemo(() => {
     if (mode === 'manager') return buildManagerElements(employees, collapsed, onToggle)
     if (mode === 'orgunit') return buildOrgUnitElements(orgUnits, employees, collapsed, onToggle)
@@ -764,9 +736,9 @@ export default function OrgTreeFlow({ employees, orgUnits = [], mode = 'manager'
           }
         }}
       >
-        <FlowPanel onExpandAll={expandAll} onCollapseAll={collapseAll} nodes={nodes} anchorRef={anchorRef} />
+        <ViewportManager nodes={nodes} anchorRef={anchorRef} />
         <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="#cbd5e1" />
-        <Controls showInteractive={false} position="bottom-left" />
+        <Controls showInteractive={false} showFitView={false} position="bottom-left" />
       </ReactFlow>
     </div>
   )
