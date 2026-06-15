@@ -560,9 +560,10 @@ function computeDefaultCollapsed(employees: Employee[], orgUnits: OrgUnit[], mod
 
 // ─── ViewportManager ──────────────────────────────────────────────────────────
 
-function ViewportManager({ nodes, anchorRef }: {
+function ViewportManager({ nodes, anchorRef, shouldCenter }: {
   nodes: Node[]
   anchorRef: React.MutableRefObject<{ id: string; x: number; y: number } | null>
+  shouldCenter: boolean
 }) {
   const { getViewport, setViewport } = useReactFlow()
   const rfWidth  = useStore(s => s.width)
@@ -570,7 +571,7 @@ function ViewportManager({ nodes, anchorRef }: {
   const initializedRef = useRef(false)
 
   useEffect(() => {
-    if (rfWidth === 0 || rfHeight === 0 || nodes.length === 0) return
+    if (!shouldCenter || rfWidth === 0 || rfHeight === 0 || nodes.length === 0) return
     if (initializedRef.current) return
     initializedRef.current = true
 
@@ -586,7 +587,7 @@ function ViewportManager({ nodes, anchorRef }: {
     const graphW = maxX - minX; const graphH = maxY - minY
     const zoom = Math.max(Math.min((rfWidth - 80) / graphW, (rfHeight - 80) / graphH, 1.5), 0.05)
     setViewport({ x: rfWidth / 2 - (minX + maxX) / 2 * zoom, y: rfHeight / 2 - (minY + maxY) / 2 * zoom, zoom })
-  }, [rfWidth, rfHeight, nodes, setViewport])
+  }, [shouldCenter, rfWidth, rfHeight, nodes, setViewport])
 
   useEffect(() => {
     if (!anchorRef.current) return
@@ -709,6 +710,9 @@ export default function OrgTreeFlow({ employees, orgUnits = [], mode = 'manager'
 
   nodesRef.current = nodes
 
+  // true only when data loads async (main app); viewer has nodes at first render
+  const startedEmpty = useMemo(() => nodes.length === 0, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Compute initial viewport synchronously from node bounding box
   const defaultViewport = useMemo(() => {
     if (nodes.length === 0) return { x: 0, y: 0, zoom: 1 }
@@ -761,7 +765,7 @@ export default function OrgTreeFlow({ employees, orgUnits = [], mode = 'manager'
           }
         }}
       >
-        <ViewportManager nodes={nodes} anchorRef={anchorRef} />
+        <ViewportManager nodes={nodes} anchorRef={anchorRef} shouldCenter={startedEmpty} />
         <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="#cbd5e1" />
         <Controls showInteractive={false} showFitView={false} position="bottom-left" />
       </ReactFlow>
