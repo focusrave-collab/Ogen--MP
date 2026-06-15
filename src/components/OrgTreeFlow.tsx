@@ -6,6 +6,7 @@ import {
   Handle,
   Position,
   useReactFlow,
+  useStore,
   type Node,
   type Edge,
   type NodeProps,
@@ -559,21 +560,20 @@ function computeDefaultCollapsed(employees: Employee[], orgUnits: OrgUnit[], mod
 
 // ─── ViewportManager ──────────────────────────────────────────────────────────
 
-function ViewportManager({ nodes, anchorRef, containerRef }: {
+function ViewportManager({ nodes, anchorRef }: {
   nodes: Node[]
   anchorRef: React.MutableRefObject<{ id: string; x: number; y: number } | null>
-  containerRef: React.RefObject<HTMLDivElement | null>
 }) {
   const { getViewport, setViewport } = useReactFlow()
+  const rfWidth  = useStore(s => s.width)
+  const rfHeight = useStore(s => s.height)
   const initializedRef = useRef(false)
 
   useEffect(() => {
-    if (initializedRef.current || nodes.length === 0) return
+    if (rfWidth === 0 || rfHeight === 0 || nodes.length === 0) return
+    if (initializedRef.current) return
     initializedRef.current = true
-    const el = containerRef.current
-    if (!el) return
-    const cW = el.clientWidth
-    const cH = el.clientHeight
+
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
     nodes.forEach(n => {
       const w = n.type === 'unit' ? UNIT_W : EMP_W
@@ -582,10 +582,11 @@ function ViewportManager({ nodes, anchorRef, containerRef }: {
       maxX = Math.max(maxX, n.position.x + w); maxY = Math.max(maxY, n.position.y + h)
     })
     if (!isFinite(minX)) return
+
     const graphW = maxX - minX; const graphH = maxY - minY
-    const zoom = Math.max(Math.min((cW - 80) / graphW, (cH - 80) / graphH, 1.5), 0.05)
-    setViewport({ x: cW / 2 - (minX + maxX) / 2 * zoom, y: cH / 2 - (minY + maxY) / 2 * zoom, zoom })
-  }, [nodes, containerRef, setViewport])
+    const zoom = Math.max(Math.min((rfWidth - 80) / graphW, (rfHeight - 80) / graphH, 1.5), 0.05)
+    setViewport({ x: rfWidth / 2 - (minX + maxX) / 2 * zoom, y: rfHeight / 2 - (minY + maxY) / 2 * zoom, zoom })
+  }, [rfWidth, rfHeight, nodes, setViewport])
 
   useEffect(() => {
     if (!anchorRef.current) return
@@ -633,7 +634,6 @@ export default function OrgTreeFlow({ employees, orgUnits = [], mode = 'manager'
 
   const nodesRef = useRef<Node[]>([])
   const anchorRef = useRef<{ id: string; x: number; y: number } | null>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
 
   const onToggle = useCallback((id: string) => {
     const node = nodesRef.current.find(n => n.id === id)
@@ -746,7 +746,7 @@ export default function OrgTreeFlow({ employees, orgUnits = [], mode = 'manager'
   }
 
   return (
-    <div ref={containerRef} style={{ width: '100%', height: '100%' }}>
+    <div style={{ width: '100%', height: '100%' }}>
       <ReactFlow
         nodes={nodes} edges={edges} nodeTypes={nodeTypes}
         defaultViewport={defaultViewport}
@@ -761,7 +761,7 @@ export default function OrgTreeFlow({ employees, orgUnits = [], mode = 'manager'
           }
         }}
       >
-        <ViewportManager nodes={nodes} anchorRef={anchorRef} containerRef={containerRef} />
+        <ViewportManager nodes={nodes} anchorRef={anchorRef} />
         <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="#cbd5e1" />
         <Controls showInteractive={false} showFitView={false} position="bottom-left" />
       </ReactFlow>
