@@ -220,7 +220,6 @@ export default function DisplayPage() {
             orgUnits={orgUnits}
             mode="combined"
             onSelect={setSelected}
-            startExpanded
           />
         </div>
       </div>
